@@ -7,6 +7,5 @@ dist/
 build/
 .eggs/
 
-# Generated data (too large for git)
-synth_clif_10k/
+# Generated data (custom runs)
 data/

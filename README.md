@@ -13,11 +13,27 @@ This package creates realistic synthetic ICU data that follows the CLIF 2.1.0 sp
 
 ## Pre-made Dataset
 
-A pre-generated dataset with **10,000 hospitalizations** (~16 million rows across 28 tables) is available for download:
+A pre-generated dataset with **10,000 hospitalizations** (~16 million rows across 28 tables) is included in this repository:
 
-**[Download from GitHub Releases](https://github.com/AartikSarma/synthetic_clif/releases)** *(coming soon)*
+```
+synth_clif_10k/
+├── patient.parquet
+├── hospitalization.parquet
+├── vitals.parquet
+├── labs.parquet
+└── ... (28 tables total)
+```
 
-Or generate your own using the instructions below.
+To use directly after cloning:
+
+```python
+import pandas as pd
+
+vitals = pd.read_parquet("synth_clif_10k/vitals.parquet")
+labs = pd.read_parquet("synth_clif_10k/labs.parquet")
+```
+
+Or generate your own custom dataset using the instructions below.
 
 ## Installation
 
