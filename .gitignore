@@ -1,0 +1,12 @@
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+.venv/
+dist/
+build/
+.eggs/
+
+# Generated data (too large for git)
+synth_clif_10k/
+data/
