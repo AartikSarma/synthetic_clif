@@ -93,11 +93,32 @@ class VitalsGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
+            # Add vital_name as lowercase version of vital_category
+            df["vital_name"] = df["vital_category"].str.lower()
             df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
 
-            # Add missingness and outliers
+            # Add missingness and outliers (per-category with physiological bounds)
             df = self.add_missingness(df, "vital_value", missingness_rate)
-            df = self.add_outliers(df, "vital_value", outlier_rate)
+            outlier_bounds = {
+                "temp_c": (32.0, 44.0),
+                "heart_rate": (0.0, 300.0),
+                "sbp": (0.0, 300.0),
+                "dbp": (0.0, 200.0),
+                "spo2": (50.0, 100.0),
+                "respiratory_rate": (0.0, 60.0),
+                "map": (0.0, 250.0),
+                "height_cm": (76.0, 255.0),
+                "weight_kg": (30.0, 1100.0),
+            }
+            for cat, (lb, ub) in outlier_bounds.items():
+                mask = df["vital_category"] == cat
+                if mask.any():
+                    subset = df.loc[mask].copy()
+                    subset = self.add_outliers(
+                        subset, "vital_value", outlier_rate,
+                        lower_bound=lb, upper_bound=ub,
+                    )
+                    df.loc[mask, "vital_value"] = subset["vital_value"]
 
         return df
 

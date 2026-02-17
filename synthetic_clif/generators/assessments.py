@@ -111,6 +111,9 @@ class PatientAssessmentsGenerator(BaseGenerator):
 
         if len(df) > 0:
             df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
+            # Add text_value column as string type (CLIFPy requires VARCHAR)
+            if "text_value" not in df.columns:
+                df["text_value"] = pd.array([None] * len(df), dtype="string")
 
         return df
 

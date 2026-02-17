@@ -95,15 +95,17 @@ class HospitalizationGenerator(BaseGenerator):
 
                 if is_terminal:
                     discharge_category = "Expired"
+                    discharge_name = "expired"
                     discharge_time = death_dttm
                 else:
                     discharge_category = self._sample_discharge_category()
+                    discharge_name = self._get_discharge_name(discharge_category)
 
                 # Calculate age at admission
                 if pd.notna(birth_date):
-                    age_at_admission = (
-                        admit_time.date() - birth_date.date()
-                    ).days / 365.25
+                    age_at_admission = int(
+                        (admit_time.date() - birth_date.date()).days / 365.25
+                    )
                 else:
                     age_at_admission = None
 
@@ -118,6 +120,7 @@ class HospitalizationGenerator(BaseGenerator):
                         "discharge_dttm": discharge_time,
                         "age_at_admission": age_at_admission,
                         "admission_type_category": self._sample_admission_type(),
+                        "discharge_name": discharge_name,
                         "discharge_category": discharge_category,
                     }
                 )
@@ -131,6 +134,7 @@ class HospitalizationGenerator(BaseGenerator):
         # Add missingness
         df = self.add_missingness(df, "age_at_admission", 0.01)
         df = self.add_missingness(df, "admission_type_category", 0.02)
+        df = self.add_missingness(df, "discharge_name", 0.02)
 
         return df
 
@@ -203,6 +207,54 @@ class HospitalizationGenerator(BaseGenerator):
         weights = np.array(self.ADMISSION_TYPE_WEIGHTS, dtype=float)
         weights /= weights.sum()
         return self.rng.choice(self.ADMISSION_TYPE_CATEGORIES, p=weights)
+
+    # Mapping from discharge_category to realistic discharge_name values
+    DISCHARGE_NAME_MAP = {
+        "Home": [
+            "discharged to home", "discharged home", "home",
+            "discharged to home or self care",
+        ],
+        "Home Health": [
+            "discharged to home with home health",
+            "home with home health services",
+        ],
+        "SNF": [
+            "skilled nursing facility", "discharged to snf",
+            "discharged to skilled nursing facility",
+        ],
+        "Expired": ["expired", "died", "deceased"],
+        "Rehab": [
+            "acute rehabilitation", "discharged to rehab",
+            "inpatient rehabilitation facility",
+        ],
+        "Hospice": [
+            "hospice - home", "hospice - facility",
+            "discharged to hospice",
+        ],
+        "LTACH": [
+            "long term acute care hospital", "discharged to ltach",
+        ],
+        "Acute Care Hospital": [
+            "transferred to another acute care hospital",
+            "transfer to acute care hospital",
+        ],
+        "AMA": ["left against medical advice", "ama"],
+        "Left AMA": ["left against medical advice", "ama"],
+        "Psych": [
+            "psychiatric facility", "discharged to psych",
+        ],
+        "Jail": ["correctional facility", "discharged to jail"],
+        "Homeless": ["homeless shelter", "homeless"],
+        "Still In": ["still hospitalized", "still in"],
+        "Unknown": ["unknown", "not documented"],
+        "Other": ["other", "other disposition"],
+        "Other Facility": ["other facility", "other healthcare facility"],
+    }
+
+    def _get_discharge_name(self, category: str) -> str:
+        """Get a realistic discharge name for a discharge category."""
+        names = self.DISCHARGE_NAME_MAP.get(category, ["other"])
+        return self.rng.choice(names)
 
     def _sample_discharge_category(self) -> str:
         """Sample non-death discharge category per CLIF 2.1.0 schema."""

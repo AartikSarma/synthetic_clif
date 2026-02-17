@@ -147,6 +147,8 @@ class LabsGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
+            # Add lab_name as lowercase version of lab_category
+            df["lab_name"] = df["lab_category"].str.lower()
             df["lab_order_dttm"] = pd.to_datetime(df["lab_order_dttm"], utc=True)
             df["lab_collect_dttm"] = pd.to_datetime(df["lab_collect_dttm"], utc=True)
             df["lab_result_dttm"] = pd.to_datetime(df["lab_result_dttm"], utc=True)

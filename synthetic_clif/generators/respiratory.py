@@ -260,8 +260,10 @@ class RespiratoryGenerator(BaseGenerator):
         record = {
             "hospitalization_id": hospitalization_id,
             "recorded_dttm": timestamp,
+            "device_name": device.lower(),
             "device_category": device,
             "vent_brand_name": None,
+            "mode_name": None,
             "mode_category": None,
             "tracheostomy": int(has_trach),
             "fio2_set": None,
@@ -286,7 +288,9 @@ class RespiratoryGenerator(BaseGenerator):
 
         # Mode
         modes = settings.get("modes", [None])
-        record["mode_category"] = self.rng.choice(modes) if modes[0] else None
+        mode = self.rng.choice(modes) if modes[0] else None
+        record["mode_category"] = mode
+        record["mode_name"] = mode.lower() if mode else None
 
         # FiO2
         if "fio2_range" in settings:
