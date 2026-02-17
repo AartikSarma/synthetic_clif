@@ -22,13 +22,18 @@ class ADTGenerator(BaseGenerator):
     Typical flow: ED → ICU → Stepdown → Ward → Discharge
     """
 
-    # Common location flow patterns
+    # Specific ICU unit categories (replacing generic "icu") —
+    # matches the vocabulary used by CLIF research projects.
+    ICU_CATEGORIES = ["MICU", "SICU", "CCU", "NICU"]
+    ICU_CATEGORY_WEIGHTS = [0.45, 0.25, 0.20, 0.10]
+
+    # Common location flow patterns (ICU leg uses one of ICU_CATEGORIES at runtime)
     FLOW_PATTERNS = {
-        "emergency_to_icu": ["ed", "icu", "stepdown", "ward"],
-        "direct_icu": ["icu", "stepdown", "ward"],
-        "stepdown_only": ["ed", "stepdown", "ward"],
-        "ward_only": ["ed", "ward"],
-        "short_icu": ["icu", "ward"],
+        "emergency_to_icu": ["ED", "ICU", "Stepdown", "Ward"],
+        "direct_icu": ["ICU", "Stepdown", "Ward"],
+        "stepdown_only": ["ED", "Stepdown", "Ward"],
+        "ward_only": ["ED", "Ward"],
+        "short_icu": ["ICU", "Ward"],
     }
 
     FLOW_WEIGHTS = [0.35, 0.25, 0.15, 0.15, 0.10]
@@ -37,7 +42,7 @@ class ADTGenerator(BaseGenerator):
     HOSPITAL_TYPES = ["academic", "community", "LTACH"]
     HOSPITAL_TYPE_WEIGHTS = [0.6, 0.35, 0.05]
 
-    # CLIF 2.1.0 ICU location types
+    # CLIF 2.1.0 ICU location types (internal subtype, kept for location_type column)
     LOCATION_TYPES = [
         "general_icu", "cardiac_icu", "cardiothoracic_surgical_icu",
         "mixed_cardiothoracic_icu", "surgical_icu", "burn_icu",
@@ -47,10 +52,9 @@ class ADTGenerator(BaseGenerator):
 
     # Location names by category
     LOCATION_NAMES = {
-        "ed": ["Emergency Department"],
-        "icu": None,  # derived from location_type
-        "stepdown": ["Stepdown Unit", "Progressive Care Unit"],
-        "ward": ["Medical Ward", "Surgical Ward", "General Ward"],
+        "ED": ["Emergency Department"],
+        "Stepdown": ["Stepdown Unit", "Progressive Care Unit"],
+        "Ward": ["Medical Ward", "Surgical Ward", "General Ward"],
         "procedural": ["Procedure Suite", "Operating Room"],
         "other": ["Other Unit"],
     }
@@ -127,6 +131,9 @@ class ADTGenerator(BaseGenerator):
         total_hours = (discharge_time - admit_time).total_seconds() / 3600
 
         if total_hours <= 0:
+            icu_cat = self.rng.choice(
+                self.ICU_CATEGORIES, p=self.ICU_CATEGORY_WEIGHTS
+            )
             loc_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
             loc_name = loc_type.replace("_", " ").title().replace("Icu", "ICU")
             return [
@@ -137,7 +144,7 @@ class ADTGenerator(BaseGenerator):
                     "in_dttm": admit_time,
                     "out_dttm": discharge_time,
                     "location_name": loc_name,
-                    "location_category": "icu",
+                    "location_category": icu_cat,
                     "location_type": loc_type,
                 }
             ]
@@ -147,10 +154,14 @@ class ADTGenerator(BaseGenerator):
         pattern_idx = self.rng.choice(len(pattern_names), p=self.FLOW_WEIGHTS)
         locations = self.FLOW_PATTERNS[pattern_names[pattern_idx]].copy()
 
+        # Replace the "ICU" placeholder with a specific ICU category
+        icu_cat = str(self.rng.choice(self.ICU_CATEGORIES, p=self.ICU_CATEGORY_WEIGHTS))
+        locations = [icu_cat if loc == "ICU" else loc for loc in locations]
+
         # Adjust pattern based on LOS
         if total_hours < 24:
             # Very short stay - single location
-            locations = [locations[0] if locations else "icu"]
+            locations = [locations[0] if locations else icu_cat]
         elif total_hours < 72:
             # Short stay - max 2 locations
             locations = locations[:2] if len(locations) > 2 else locations
@@ -201,7 +212,7 @@ class ADTGenerator(BaseGenerator):
 
     def _get_location_details(self, location: str) -> tuple[str, str]:
         """Get location_type and location_name for a location_category."""
-        if location == "icu":
+        if location in self.ICU_CATEGORIES:
             loc_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
             loc_name = loc_type.replace("_", " ").title().replace("Icu", "ICU")
             return loc_type, loc_name
@@ -220,15 +231,15 @@ class ADTGenerator(BaseGenerator):
         weights = []
 
         for i, loc in enumerate(locations):
-            if loc == "ed":
+            if loc == "ED":
                 # ED: short stay (2-8 hours)
                 weights.append(max(2, min(8, total_hours * 0.05)) / total_hours)
-            elif loc == "icu":
+            elif loc in self.ICU_CATEGORIES:
                 # ICU: variable, usually substantial portion
                 weights.append(0.4 if n > 2 else 0.6)
-            elif loc == "stepdown":
+            elif loc == "Stepdown":
                 weights.append(0.25)
-            elif loc == "ward":
+            elif loc == "Ward":
                 weights.append(0.3)
             else:
                 weights.append(1.0 / n)

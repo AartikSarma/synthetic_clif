@@ -10,6 +10,10 @@ from synthetic_clif.generators.base import BaseGenerator
 from synthetic_clif.config.mcide import MCIDELoader
 from synthetic_clif.utils.distributions import log_normal_los
 
+# CLIF research projects typically filter for 2018–2024 historical data
+CLIF_DATE_START = datetime(2018, 1, 1, tzinfo=timezone.utc)
+CLIF_DATE_END = datetime(2024, 12, 31, tzinfo=timezone.utc)
+
 
 class HospitalizationGenerator(BaseGenerator):
     """Generate synthetic hospitalizations.
@@ -35,15 +39,16 @@ class HospitalizationGenerator(BaseGenerator):
         Args:
             patients_df: Patient table DataFrame
             n_hospitalizations: Total number of hospitalizations to generate
-            reference_date: Reference date for admission times (default: now - 1 year)
+            reference_date: Unused; admissions are drawn uniformly from
+                CLIF_DATE_START–CLIF_DATE_END (2018-01-01 to 2024-12-31)
+                so that synthetic data matches the date range expected by
+                CLIF research projects.
             median_los_days: Median length of stay in days
             los_sigma: Log-normal sigma parameter for LOS distribution
 
         Returns:
             DataFrame with hospitalization table columns
         """
-        if reference_date is None:
-            reference_date = datetime.now(timezone.utc) - timedelta(days=365)
 
         patient_ids = patients_df["patient_id"].tolist()
         birth_dates = patients_df["birth_date"].tolist()
@@ -64,10 +69,8 @@ class HospitalizationGenerator(BaseGenerator):
             birth_date = birth_dates[pt_idx]
             death_dttm = death_dttms[pt_idx]
 
-            # Generate admission times spread over 2 years before reference date
-            admission_times = self._generate_admission_times(
-                n_hosp, reference_date, spread_days=730
-            )
+            # Generate admission times uniformly within the CLIF historical range
+            admission_times = self._generate_admission_times(n_hosp)
 
             # Generate LOS for each hospitalization
             los_days = log_normal_los(
@@ -167,23 +170,17 @@ class HospitalizationGenerator(BaseGenerator):
 
         return counts
 
-    def _generate_admission_times(
-        self,
-        n: int,
-        reference_date: datetime,
-        spread_days: int = 730,
-    ) -> list[datetime]:
-        """Generate admission times spread over a time period."""
-        if reference_date.tzinfo is None:
-            reference_date = reference_date.replace(tzinfo=timezone.utc)
-
+    def _generate_admission_times(self, n: int) -> list[datetime]:
+        """Generate admission times drawn uniformly from CLIF_DATE_START to CLIF_DATE_END."""
+        total_seconds = int(
+            (CLIF_DATE_END - CLIF_DATE_START).total_seconds()
+        )
         admission_times = []
         for _ in range(n):
-            days_ago = int(self.rng.integers(0, spread_days))
-            hour = int(self.rng.integers(0, 24))
-            minute = int(self.rng.integers(0, 60))
-            admit_time = reference_date - timedelta(days=days_ago)
-            admit_time = admit_time.replace(hour=hour, minute=minute, second=0)
+            offset_seconds = int(self.rng.integers(0, total_seconds))
+            admit_time = CLIF_DATE_START + timedelta(seconds=offset_seconds)
+            # Round to minute boundary for realistic timestamps
+            admit_time = admit_time.replace(second=0, microsecond=0)
             admission_times.append(admit_time)
 
         # Sort chronologically for same patient
