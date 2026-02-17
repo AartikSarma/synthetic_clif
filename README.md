@@ -8,11 +8,11 @@ A pre-generated dataset with **10,000 hospitalizations** (~16 million rows acros
 
 ```bash
 # Download and extract (requires GitHub CLI)
-gh release download v0.3.1 -R AartikSarma/synthetic_clif -p "synth_clif_10k.tar.gz"
+gh release download v0.3.2 -R AartikSarma/synthetic_clif -p "synth_clif_10k.tar.gz"
 mkdir -p synth_clif_10k && tar -xzf synth_clif_10k.tar.gz -C synth_clif_10k
 
 # Or download directly
-curl -L https://github.com/AartikSarma/synthetic_clif/releases/download/v0.3.1/synth_clif_10k.tar.gz | tar -xz -C synth_clif_10k
+curl -L https://github.com/AartikSarma/synthetic_clif/releases/download/v0.3.2/synth_clif_10k.tar.gz | tar -xz -C synth_clif_10k
 ```
 
 Then load in Python:
