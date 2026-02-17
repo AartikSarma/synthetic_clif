@@ -15,8 +15,9 @@ class ADTGenerator(BaseGenerator):
 
     Creates adt table with location transfers during hospitalization:
     - hospitalization_id (foreign key)
+    - hospital_id, hospital_type
     - in_dttm, out_dttm (contiguous and within hospitalization bounds)
-    - location_category (mCIDE category)
+    - location_name, location_category, location_type
 
     Typical flow: ED → ICU → Stepdown → Ward → Discharge
     """
@@ -32,6 +33,28 @@ class ADTGenerator(BaseGenerator):
 
     FLOW_WEIGHTS = [0.35, 0.25, 0.15, 0.15, 0.10]
 
+    # CLIF 2.1.0 hospital types
+    HOSPITAL_TYPES = ["academic", "community", "LTACH"]
+    HOSPITAL_TYPE_WEIGHTS = [0.6, 0.35, 0.05]
+
+    # CLIF 2.1.0 ICU location types
+    LOCATION_TYPES = [
+        "general_icu", "cardiac_icu", "cardiothoracic_surgical_icu",
+        "mixed_cardiothoracic_icu", "surgical_icu", "burn_icu",
+        "neuro_icu", "neurosurgical_icu", "mixed_neuro_icu", "medical_icu",
+    ]
+    LOCATION_TYPE_WEIGHTS = [0.25, 0.15, 0.05, 0.05, 0.15, 0.02, 0.08, 0.05, 0.05, 0.15]
+
+    # Location names by category
+    LOCATION_NAMES = {
+        "ed": ["Emergency Department"],
+        "icu": None,  # derived from location_type
+        "stepdown": ["Stepdown Unit", "Progressive Care Unit"],
+        "ward": ["Medical Ward", "Surgical Ward", "General Ward"],
+        "procedural": ["Procedure Suite", "Operating Room"],
+        "other": ["Other Unit"],
+    }
+
     def generate(
         self,
         hospitalizations_df: pd.DataFrame,
@@ -45,6 +68,16 @@ class ADTGenerator(BaseGenerator):
             DataFrame with ADT table columns
         """
         records = []
+
+        # Generate a set of hospital IDs (simulate multi-hospital system)
+        n_hospitals = max(3, len(hospitalizations_df) // 100)
+        hospital_ids = [f"HOSP-{i:03d}" for i in range(1, n_hospitals + 1)]
+        hospital_types = self.rng.choice(
+            self.HOSPITAL_TYPES,
+            size=n_hospitals,
+            p=self.HOSPITAL_TYPE_WEIGHTS,
+        )
+        hospital_map = dict(zip(hospital_ids, hospital_types))
 
         for _, hosp in hospitalizations_df.iterrows():
             hosp_id = hosp["hospitalization_id"]
@@ -64,9 +97,13 @@ class ADTGenerator(BaseGenerator):
             if discharge_time.tzinfo is None:
                 discharge_time = discharge_time.replace(tzinfo=timezone.utc)
 
+            # Assign hospital for this hospitalization
+            hospital_id = self.rng.choice(hospital_ids)
+            hospital_type = hospital_map[hospital_id]
+
             # Generate location sequence
             adt_events = self._generate_location_sequence(
-                hosp_id, admit_time, discharge_time
+                hosp_id, admit_time, discharge_time, hospital_id, hospital_type
             )
             records.extend(adt_events)
 
@@ -83,17 +120,25 @@ class ADTGenerator(BaseGenerator):
         hospitalization_id: str,
         admit_time: datetime,
         discharge_time: datetime,
+        hospital_id: str,
+        hospital_type: str,
     ) -> list[dict]:
         """Generate sequence of location transfers."""
         total_hours = (discharge_time - admit_time).total_seconds() / 3600
 
         if total_hours <= 0:
+            loc_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+            loc_name = loc_type.replace("_", " ").title().replace("Icu", "ICU")
             return [
                 {
                     "hospitalization_id": hospitalization_id,
+                    "hospital_id": hospital_id,
+                    "hospital_type": hospital_type,
                     "in_dttm": admit_time,
                     "out_dttm": discharge_time,
+                    "location_name": loc_name,
                     "location_category": "icu",
+                    "location_type": loc_type,
                 }
             ]
 
@@ -134,18 +179,38 @@ class ADTGenerator(BaseGenerator):
                 end_time += timedelta(hours=jitter_hours)
                 end_time = min(end_time, discharge_time)
 
+            # Determine location_type and location_name
+            loc_type, loc_name = self._get_location_details(location)
+
             events.append(
                 {
                     "hospitalization_id": hospitalization_id,
+                    "hospital_id": hospital_id,
+                    "hospital_type": hospital_type,
                     "in_dttm": current_time,
                     "out_dttm": end_time,
+                    "location_name": loc_name,
                     "location_category": location,
+                    "location_type": loc_type,
                 }
             )
 
             current_time = end_time
 
         return events
+
+    def _get_location_details(self, location: str) -> tuple[str, str]:
+        """Get location_type and location_name for a location_category."""
+        if location == "icu":
+            loc_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+            loc_name = loc_type.replace("_", " ").title().replace("Icu", "ICU")
+            return loc_type, loc_name
+
+        # For non-ICU locations, location_type is NULL per schema
+        # (location_type only has ICU subtypes as permissible values)
+        names = self.LOCATION_NAMES.get(location, ["Other Unit"])
+        loc_name = self.rng.choice(names) if names else location.title()
+        return None, loc_name
 
     def _get_time_weights(
         self, locations: list[str], total_hours: float

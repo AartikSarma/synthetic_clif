@@ -22,6 +22,7 @@ class TestPatientGenerator:
         assert "ethnicity_category" in df.columns
         assert "birth_date" in df.columns
         assert "death_dttm" in df.columns
+        assert "language_category" in df.columns
 
     def test_patient_ids_unique(self, seed, mcide):
         """Test that patient IDs are unique."""
@@ -70,6 +71,15 @@ class TestPatientGenerator:
         valid_ethnicities = set(mcide.get_category("ethnicity"))
         for eth in df["ethnicity_category"].dropna():
             assert eth in valid_ethnicities
+
+    def test_language_category_valid(self, seed, mcide):
+        """Test that language categories are valid."""
+        gen = PatientGenerator(seed=seed, mcide=mcide)
+        df = gen.generate(n_patients=100)
+
+        valid_languages = set(PatientGenerator.LANGUAGE_CATEGORIES)
+        for lang in df["language_category"].dropna():
+            assert lang in valid_languages
 
     def test_birth_date_reasonable(self, seed, mcide, reference_date):
         """Test that birth dates produce reasonable ages."""

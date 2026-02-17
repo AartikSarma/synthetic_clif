@@ -29,16 +29,22 @@ class RespiratoryGenerator(BaseGenerator):
     - Realistic parameter ranges
     """
 
+    # CLIF 2.1.0 mode_category values
+    # "Assist Control-Volume Control", "Pressure Control",
+    # "Pressure-Regulated Volume Control", "SIMV",
+    # "Pressure Support/CPAP", "Volume Support", "Blow by", "Other"
+
+    VENT_BRANDS = ["Puritan Bennett 840", "Servo-i", "Drager V500", "Hamilton G5", "Avea"]
+
     # Device-specific settings ranges
     DEVICE_SETTINGS = {
         "IMV": {
             "modes": [
-                "Volume Control",
+                "Assist Control-Volume Control",
                 "Pressure Control",
-                "PRVC",
+                "Pressure-Regulated Volume Control",
                 "SIMV",
-                "Pressure Support",
-                "APRV",
+                "Pressure Support/CPAP",
             ],
             "fio2_range": (0.3, 1.0),
             "peep_range": (5, 20),
@@ -248,14 +254,16 @@ class RespiratoryGenerator(BaseGenerator):
         device: str,
         has_trach: bool,
     ) -> dict:
-        """Generate a single respiratory support record."""
+        """Generate a single respiratory support record per CLIF 2.1.0 schema."""
         settings = self.DEVICE_SETTINGS.get(device, self.DEVICE_SETTINGS["Room Air"])
 
         record = {
             "hospitalization_id": hospitalization_id,
             "recorded_dttm": timestamp,
             "device_category": device,
+            "vent_brand_name": None,
             "mode_category": None,
+            "tracheostomy": int(has_trach),
             "fio2_set": None,
             "lpm_set": None,
             "tidal_volume_set": None,
@@ -263,11 +271,17 @@ class RespiratoryGenerator(BaseGenerator):
             "pressure_control_set": None,
             "pressure_support_set": None,
             "flow_rate_set": None,
-            "peak_inspiratory_pressure": None,
-            "plateau_pressure": None,
+            "peak_inspiratory_pressure_set": None,
+            "inspiratory_time_set": None,
             "peep_set": None,
-            "ve_delivered": None,
-            "tracheostomy": has_trach,
+            # Observed values
+            "tidal_volume_obs": None,
+            "resp_rate_obs": None,
+            "plateau_pressure_obs": None,
+            "peak_inspiratory_pressure_obs": None,
+            "peep_obs": None,
+            "minute_vent_obs": None,
+            "mean_airway_pressure_obs": None,
         }
 
         # Mode
@@ -296,32 +310,50 @@ class RespiratoryGenerator(BaseGenerator):
 
         # Ventilator-specific settings
         if device == "IMV":
+            record["vent_brand_name"] = self.rng.choice(self.VENT_BRANDS)
+
             record["tidal_volume_set"] = round(
                 self.rng.uniform(*settings["tidal_volume_range"]), 0
             )
             record["resp_rate_set"] = round(
                 self.rng.uniform(*settings["resp_rate_range"]), 0
             )
+            record["inspiratory_time_set"] = round(
+                self.rng.uniform(0.8, 1.5), 2
+            )
 
             mode = record["mode_category"]
-            if mode in ["Pressure Control", "APRV"]:
+            if mode in ["Pressure Control"]:
                 record["pressure_control_set"] = round(
                     self.rng.uniform(*settings["pressure_control_range"]), 0
                 )
-            if mode in ["Pressure Support", "SIMV"]:
+            if mode in ["Pressure Support/CPAP", "SIMV"]:
                 record["pressure_support_set"] = round(
                     self.rng.uniform(*settings["pressure_support_range"]), 0
                 )
 
-            # Measured values
-            record["peak_inspiratory_pressure"] = round(
+            # Set PIP
+            record["peak_inspiratory_pressure_set"] = round(
                 self.rng.uniform(15, 40), 0
             )
+
+            # Observed values (slight variation from set values)
+            tv_set = record["tidal_volume_set"]
+            record["tidal_volume_obs"] = round(tv_set + self.rng.normal(0, 30), 0)
+            rr_set = record["resp_rate_set"]
+            record["resp_rate_obs"] = round(rr_set + self.rng.normal(2, 3), 0)
+            record["peak_inspiratory_pressure_obs"] = round(
+                record["peak_inspiratory_pressure_set"] + self.rng.normal(0, 2), 0
+            )
             if self.rng.random() < 0.7:
-                record["plateau_pressure"] = round(
+                record["plateau_pressure_obs"] = round(
                     self.rng.uniform(12, 30), 0
                 )
-            record["ve_delivered"] = round(self.rng.uniform(5, 15), 1)
+            peep_set = record["peep_set"]
+            if peep_set is not None:
+                record["peep_obs"] = round(peep_set + self.rng.normal(0, 0.5), 0)
+            record["minute_vent_obs"] = round(self.rng.uniform(5, 15), 1)
+            record["mean_airway_pressure_obs"] = round(self.rng.uniform(8, 25), 0)
 
         elif device == "NIPPV":
             record["pressure_support_set"] = round(

@@ -22,6 +22,12 @@ class TestRespiratoryGenerator:
         assert "fio2_set" in df.columns
         assert "peep_set" in df.columns
         assert "tracheostomy" in df.columns
+        assert "vent_brand_name" in df.columns
+        assert "tidal_volume_obs" in df.columns
+        assert "resp_rate_obs" in df.columns
+        assert "peep_obs" in df.columns
+        assert "minute_vent_obs" in df.columns
+        assert "mean_airway_pressure_obs" in df.columns
 
     def test_device_categories_valid(self, hospitalizations_df, seed, mcide):
         """Test that device categories are valid mCIDE values."""
@@ -68,16 +74,15 @@ class TestRespiratoryGenerator:
 
         imv_records = df[df["device_category"] == "IMV"]
         if len(imv_records) > 0:
-            # Should have tidal volume and respiratory rate
             assert imv_records["tidal_volume_set"].notna().any()
             assert imv_records["resp_rate_set"].notna().any()
 
     def test_tracheostomy_flag(self, hospitalizations_df, seed, mcide):
-        """Test that tracheostomy flag is boolean."""
+        """Test that tracheostomy flag is integer (0 or 1)."""
         gen = RespiratoryGenerator(seed=seed, mcide=mcide)
         df = gen.generate(hospitalizations_df)
 
-        assert df["tracheostomy"].dtype == bool
+        assert set(df["tracheostomy"].unique()).issubset({0, 1})
 
     def test_device_appropriate_settings(self, hospitalizations_df, seed, mcide):
         """Test that settings are appropriate for device type."""

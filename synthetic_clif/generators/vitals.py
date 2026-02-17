@@ -20,7 +20,7 @@ class VitalsGenerator(BaseGenerator):
     - recorded_dttm (irregular timestamps, ~hourly in ICU, ~q4h elsewhere)
     - vital_category (mCIDE: temp_c, heart_rate, sbp, dbp, spo2, etc.)
     - vital_value (realistic ranges with temporal autocorrelation)
-    - meas_site_category (measurement site)
+    - meas_site_name (measurement site)
 
     Features:
     - Temporal autocorrelation (values don't jump unrealistically)
@@ -191,7 +191,7 @@ class VitalsGenerator(BaseGenerator):
                         "recorded_dttm": ts,
                         "vital_category": "temp_c",
                         "vital_value": state.temperature,
-                        "meas_site_category": self.rng.choice(
+                        "meas_site_name": self.rng.choice(
                             ["Oral", "Tympanic", "Temporal", "Axillary"]
                         ),
                     }
@@ -221,7 +221,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "heart_rate",
                 "vital_value": round(state.heart_rate, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -232,7 +232,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "sbp",
                 "vital_value": round(state.sbp, 0),
-                "meas_site_category": self.rng.choice(
+                "meas_site_name": self.rng.choice(
                     ["Arterial", None], p=[0.2, 0.8]
                 ),
             }
@@ -244,7 +244,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "dbp",
                 "vital_value": round(state.dbp, 0),
-                "meas_site_category": self.rng.choice(
+                "meas_site_name": self.rng.choice(
                     ["Arterial", None], p=[0.2, 0.8]
                 ),
             }
@@ -258,7 +258,7 @@ class VitalsGenerator(BaseGenerator):
                     "recorded_dttm": timestamp,
                     "vital_category": "map",
                     "vital_value": round(state.map_value, 0),
-                    "meas_site_category": None,
+                    "meas_site_name": None,
                 }
             )
 
@@ -269,7 +269,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "spo2",
                 "vital_value": round(state.spo2, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -280,7 +280,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "respiratory_rate",
                 "vital_value": round(state.respiratory_rate, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -306,13 +306,13 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "height_cm",
                 "vital_value": round(height, 1),
-                "meas_site_category": None,
+                "meas_site_name": None,
             },
             {
                 "hospitalization_id": hospitalization_id,
                 "recorded_dttm": timestamp,
                 "vital_category": "weight_kg",
                 "vital_value": round(weight, 1),
-                "meas_site_category": None,
+                "meas_site_name": None,
             },
         ]
