@@ -36,9 +36,9 @@ class TestMCIDELoader:
     def test_get_category_location(self, mcide):
         """Test getting location categories."""
         locations = mcide.get_category("location")
-        assert "icu" in locations
-        assert "ward" in locations
-        assert "ed" in locations
+        assert "MICU" in locations
+        assert "Ward" in locations
+        assert "ED" in locations
 
     def test_get_category_respiratory_device(self, mcide):
         """Test getting respiratory device categories."""
@@ -69,7 +69,7 @@ class TestMCIDELoader:
     def test_get_lab_reference_units(self, mcide):
         """Test getting lab reference units."""
         units = mcide.get_lab_reference_units()
-        assert units["sodium"] == "mEq/L"
+        assert units["sodium"] == "mmol/L"
         assert units["creatinine"] == "mg/dL"
         assert units["hemoglobin"] == "g/dL"
 

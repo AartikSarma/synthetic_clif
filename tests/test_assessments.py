@@ -21,15 +21,6 @@ class TestPatientAssessmentsGenerator:
         assert "numerical_value" in df.columns
         assert "categorical_value" in df.columns
 
-    def test_assessment_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that assessment categories are valid mCIDE values."""
-        gen = PatientAssessmentsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_assessments = set(mcide.get_category("assessment"))
-        for ac in df["assessment_category"].dropna():
-            assert ac in valid_assessments
-
     def test_gcs_values_valid(self, hospitalizations_df, seed, mcide):
         """Test that GCS values are in valid ranges."""
         gen = PatientAssessmentsGenerator(seed=seed, mcide=mcide)

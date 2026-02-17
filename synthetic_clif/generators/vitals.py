@@ -41,12 +41,18 @@ class VitalsGenerator(BaseGenerator):
         "weight_kg": (80.0, 20.0, 40.0, 200.0),
     }
 
+    # Specific ICU unit categories (must match ADTGenerator.ICU_CATEGORIES)
+    ICU_CATEGORIES = {"MICU", "SICU", "CCU", "NICU"}
+
     # Measurement frequency in hours by location
     FREQUENCY_BY_LOCATION = {
-        "icu": 1.0,
-        "ed": 1.0,
-        "stepdown": 2.0,
-        "ward": 4.0,
+        "MICU": 1.0,
+        "SICU": 1.0,
+        "CCU": 1.0,
+        "NICU": 1.0,
+        "ED": 1.0,
+        "Stepdown": 2.0,
+        "Ward": 4.0,
         "other": 4.0,
     }
 
@@ -146,13 +152,13 @@ class VitalsGenerator(BaseGenerator):
     ) -> str:
         """Get location at a specific time."""
         if locations is None:
-            return "icu"
+            return "MICU"
 
         for in_time, out_time, location in locations:
             if in_time <= time <= out_time:
                 return location
 
-        return "icu"
+        return "MICU"
 
     def _generate_hospitalization_vitals(
         self,

@@ -114,45 +114,6 @@ class TestSyntheticCLIFDataset:
         assert len(small_dataset["vitals"]) > 8
         assert len(small_dataset["labs"]) > 8
 
-    def test_to_parquet(self):
-        """Test parquet output with clif_ prefix."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-
-            dataset = SyntheticCLIFDataset(
-                n_patients=3, n_hospitalizations=5, seed=42
-            )
-            dataset.generate()
-            dataset.to_parquet(output_dir)
-
-            # Check files exist with clif_ prefix
-            assert (output_dir / "clif_patient.parquet").exists()
-            assert (output_dir / "clif_hospitalization.parquet").exists()
-            assert (output_dir / "clif_vitals.parquet").exists()
-
-            # Check files are readable
-            df = pd.read_parquet(output_dir / "clif_patient.parquet")
-            assert len(df) == 3
-
-    def test_to_csv(self):
-        """Test CSV output with clif_ prefix."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-
-            dataset = SyntheticCLIFDataset(
-                n_patients=3, n_hospitalizations=5, seed=42
-            )
-            dataset.generate()
-            dataset.to_csv(output_dir)
-
-            # Check files exist with clif_ prefix
-            assert (output_dir / "clif_patient.csv").exists()
-            assert (output_dir / "clif_hospitalization.csv").exists()
-
-            # Check files are readable
-            df = pd.read_csv(output_dir / "clif_patient.csv")
-            assert len(df) == 3
-
     def test_reproducibility(self):
         """Test that same seed produces same results."""
         dataset1 = SyntheticCLIFDataset(

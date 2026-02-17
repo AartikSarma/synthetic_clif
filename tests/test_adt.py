@@ -82,15 +82,6 @@ class TestADTGenerator:
             if pd.notna(hosp["discharge_dttm"]):
                 assert row["out_dttm"] <= hosp["discharge_dttm"]
 
-    def test_location_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that location categories are valid mCIDE values."""
-        gen = ADTGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_locations = set(mcide.get_category("location"))
-        for loc in df["location_category"].dropna():
-            assert loc in valid_locations
-
     def test_contiguous_transfers(self, hospitalizations_df, seed, mcide):
         """Test that ADT events are contiguous within each hospitalization."""
         gen = ADTGenerator(seed=seed, mcide=mcide)

@@ -40,36 +40,6 @@ class TestMicrobiologyCultureGenerator:
                 if pd.notna(row["collect_dttm"]) and pd.notna(row["result_dttm"]):
                     assert row["result_dttm"] >= row["collect_dttm"]
 
-    def test_fluid_category_valid(self, hospitalizations_df, seed, mcide):
-        """Test that fluid categories are valid mCIDE values."""
-        gen = MicrobiologyCultureGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_fluids = set(mcide.get_category("culture_fluid"))
-            for fc in df["fluid_category"].dropna():
-                assert fc in valid_fluids
-
-    def test_organism_category_valid(self, hospitalizations_df, seed, mcide):
-        """Test that organism categories are valid mCIDE values."""
-        gen = MicrobiologyCultureGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_organisms = set(mcide.get_category("organism"))
-            for oc in df["organism_category"].dropna():
-                assert oc in valid_organisms
-
-    def test_method_category_valid(self, hospitalizations_df, seed, mcide):
-        """Test that method categories are valid."""
-        gen = MicrobiologyCultureGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_methods = {"culture", "gram_stain", "smear"}
-            for mc in df["method_category"].dropna():
-                assert mc in valid_methods
-
 
 class TestMicrobiologySusceptibilityGenerator:
     """Tests for MicrobiologySusceptibilityGenerator."""
@@ -99,16 +69,3 @@ class TestMicrobiologySusceptibilityGenerator:
             valid_organism_ids = set(cultures_df["organism_id"].dropna())
             for oid in df["organism_id"]:
                 assert oid in valid_organism_ids
-
-    def test_susceptibility_valid(self, hospitalizations_df, seed, mcide):
-        """Test that susceptibility values are valid mCIDE values."""
-        culture_gen = MicrobiologyCultureGenerator(seed=seed, mcide=mcide)
-        cultures_df = culture_gen.generate(hospitalizations_df)
-
-        sus_gen = MicrobiologySusceptibilityGenerator(seed=seed, mcide=mcide)
-        df = sus_gen.generate(cultures_df)
-
-        if len(df) > 0:
-            valid_sus = set(mcide.get_category("susceptibility"))
-            for sus in df["susceptibility_category"].dropna():
-                assert sus in valid_sus

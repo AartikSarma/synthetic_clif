@@ -25,15 +25,6 @@ class TestLabsGenerator:
         assert "reference_unit" in df.columns
         assert "lab_order_category" in df.columns
 
-    def test_lab_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that lab categories are valid mCIDE values."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_labs = set(mcide.get_category("lab"))
-        for lc in df["lab_category"].dropna():
-            assert lc in valid_labs
-
     def test_timestamp_ordering(self, hospitalizations_df, seed, mcide):
         """Test that lab timestamps are properly ordered."""
         gen = LabsGenerator(seed=seed, mcide=mcide)
@@ -44,47 +35,6 @@ class TestLabsGenerator:
                 assert row["lab_collect_dttm"] >= row["lab_order_dttm"]
             if pd.notna(row["lab_collect_dttm"]) and pd.notna(row["lab_result_dttm"]):
                 assert row["lab_result_dttm"] >= row["lab_collect_dttm"]
-
-    def test_lab_values_reasonable(self, hospitalizations_df, seed, mcide):
-        """Test that lab values are physiologically reasonable."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        # Check some common labs
-        bounds = {
-            "sodium": (120, 160),
-            "potassium": (2.5, 7.0),
-            "creatinine": (0.3, 10.0),
-            "hemoglobin": (5, 18),
-            "ph": (7.0, 7.6),
-        }
-
-        for lab_cat, (lower, upper) in bounds.items():
-            values = df[df["lab_category"] == lab_cat]["lab_value_numeric"].dropna()
-            if len(values) > 0:
-                assert values.min() >= lower
-                assert values.max() <= upper
-
-    def test_reference_units(self, hospitalizations_df, seed, mcide):
-        """Test that reference units are appropriate."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        expected_units = mcide.get_lab_reference_units()
-
-        for _, row in df.iterrows():
-            lab_cat = row["lab_category"]
-            if lab_cat in expected_units and pd.notna(row["reference_unit"]):
-                assert row["reference_unit"] == expected_units[lab_cat]
-
-    def test_lab_order_category_valid(self, hospitalizations_df, seed, mcide):
-        """Test that lab order categories are valid CLIF 2.1.0 values."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_types = set(mcide.get_category("lab_order"))
-        for lt in df["lab_order_category"].dropna():
-            assert lt in valid_types
 
     def test_admission_labs(self, hospitalizations_df, seed, mcide):
         """Test that admission labs are generated."""

@@ -1,0 +1,57 @@
+name: Release Dataset
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest clifpy
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Generate 10K dataset
+        run: |
+          python -c "
+          from synthetic_clif.generators.dataset import SyntheticCLIFDataset
+          from pathlib import Path
+
+          dataset = SyntheticCLIFDataset(
+              n_patients=8000,
+              n_hospitalizations=10000,
+              seed=42,
+              include_concept_tables=True,
+          )
+          dataset.generate()
+          dataset.to_parquet(Path('synth_clif_10k'))
+          print(dataset.summary().to_string())
+          "
+
+      - name: Package dataset
+        run: |
+          cd synth_clif_10k
+          tar -czf ../synth_clif_10k.tar.gz *.parquet
+          cd ..
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            synth_clif_10k.tar.gz \
+            --clobber

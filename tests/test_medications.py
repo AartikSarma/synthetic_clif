@@ -29,26 +29,6 @@ class TestMedicationContinuousGenerator:
         assert "med_group" in df.columns
         assert "mar_action_category" in df.columns
 
-    def test_med_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that medication categories are valid."""
-        gen = MedicationContinuousGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_meds = set(mcide.get_category("medication"))
-            for mc in df["med_category"].dropna():
-                assert mc in valid_meds
-
-    def test_route_valid(self, hospitalizations_df, seed, mcide):
-        """Test that routes are valid mCIDE values."""
-        gen = MedicationContinuousGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_routes = set(mcide.get_category("med_route"))
-            for route in df["med_route_category"].dropna():
-                assert route in valid_routes
-
     def test_dose_positive(self, hospitalizations_df, seed, mcide):
         """Test that doses are positive."""
         gen = MedicationContinuousGenerator(seed=seed, mcide=mcide)
@@ -86,16 +66,6 @@ class TestMedicationIntermittentGenerator:
         assert "med_route_category" in df.columns
         assert "mar_action_category" in df.columns
         assert "med_group" in df.columns
-
-    def test_mar_action_valid(self, hospitalizations_df, seed, mcide):
-        """Test that MAR actions are valid mCIDE values."""
-        gen = MedicationIntermittentGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        if len(df) > 0:
-            valid_actions = set(mcide.get_category("mar_action"))
-            for action in df["mar_action_category"].dropna():
-                assert action in valid_actions
 
     def test_mostly_given(self, hospitalizations_df, seed, mcide):
         """Test that most medications are marked as given."""

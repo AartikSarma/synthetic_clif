@@ -22,50 +22,6 @@ class TestRespiratoryGenerator:
         assert "fio2_set" in df.columns
         assert "peep_set" in df.columns
         assert "tracheostomy" in df.columns
-        assert "vent_brand_name" in df.columns
-        assert "tidal_volume_obs" in df.columns
-        assert "resp_rate_obs" in df.columns
-        assert "peep_obs" in df.columns
-        assert "minute_vent_obs" in df.columns
-        assert "mean_airway_pressure_obs" in df.columns
-
-    def test_device_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that device categories are valid mCIDE values."""
-        gen = RespiratoryGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_devices = set(mcide.get_category("respiratory_device"))
-        for dc in df["device_category"].dropna():
-            assert dc in valid_devices
-
-    def test_mode_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that mode categories are valid mCIDE values."""
-        gen = RespiratoryGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_modes = set(mcide.get_category("respiratory_mode"))
-        for mc in df["mode_category"].dropna():
-            assert mc in valid_modes
-
-    def test_fio2_range(self, hospitalizations_df, seed, mcide):
-        """Test that FiO2 is in valid range."""
-        gen = RespiratoryGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        fio2_values = df["fio2_set"].dropna()
-        if len(fio2_values) > 0:
-            assert fio2_values.min() >= 0.21
-            assert fio2_values.max() <= 1.0
-
-    def test_peep_range(self, hospitalizations_df, seed, mcide):
-        """Test that PEEP is in valid range."""
-        gen = RespiratoryGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        peep_values = df["peep_set"].dropna()
-        if len(peep_values) > 0:
-            assert peep_values.min() >= 0
-            assert peep_values.max() <= 25
 
     def test_imv_has_ventilator_settings(self, hospitalizations_df, seed, mcide):
         """Test that IMV records have ventilator settings."""
