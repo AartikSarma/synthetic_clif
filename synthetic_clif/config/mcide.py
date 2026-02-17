@@ -95,12 +95,17 @@ class MCIDELoader:
                 "Still In",
                 "Other Facility",
             ],
-            # ADT
+            # ADT — specific ICU unit names replace the generic "icu" value so
+            # that CLIF research projects filtering on e.g. "MICU" or "SICU"
+            # find matching records in the synthetic dataset.
             "location": [
-                "ed",
-                "ward",
-                "stepdown",
-                "icu",
+                "ED",
+                "Ward",
+                "Stepdown",
+                "MICU",
+                "SICU",
+                "CCU",
+                "NICU",
                 "procedural",
                 "l&d",
                 "hospice",
