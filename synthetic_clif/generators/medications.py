@@ -195,8 +195,8 @@ class MedicationContinuousGenerator(BaseGenerator):
         # Vasopressors: ~25% of ICU patients
         if self.rng.random() < 0.25 and los_hours >= 12:
             # Primary vasopressor (weighted selection)
-            primary_agents = ["norepinephrine", "epinephrine", "dopamine", "dobutamine"]
-            primary_weights = [0.70, 0.15, 0.10, 0.05]
+            primary_agents = ["norepinephrine", "phenylephrine", "epinephrine", "dopamine", "dobutamine"]
+            primary_weights = [0.60, 0.11, 0.12, 0.10, 0.07]
             primary_vaso = self.rng.choice(primary_agents, p=primary_weights)
             records.extend(
                 self._generate_infusion(

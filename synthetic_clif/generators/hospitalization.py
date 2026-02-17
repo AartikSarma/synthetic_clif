@@ -31,8 +31,8 @@ class HospitalizationGenerator(BaseGenerator):
         patients_df: pd.DataFrame,
         n_hospitalizations: int,
         reference_date: Optional[datetime] = None,
-        median_los_days: float = 5.0,
-        los_sigma: float = 0.8,
+        median_los_days: float = 7.0,
+        los_sigma: float = 0.9,
     ) -> pd.DataFrame:
         """Generate hospitalizations linked to patients.
 
