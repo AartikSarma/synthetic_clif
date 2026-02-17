@@ -78,4 +78,5 @@ class TestMCIDELoader:
         ranges = mcide.get_lab_reference_ranges()
         assert ranges["sodium"] == (136, 145)
         assert ranges["potassium"] == (3.5, 5.0)
-        assert ranges["ph"] == (7.35, 7.45)
+        assert ranges["ph_arterial"] == (7.35, 7.45)
+        assert ranges["ph_venous"] == (7.31, 7.41)
