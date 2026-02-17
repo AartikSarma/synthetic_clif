@@ -194,18 +194,21 @@ class MedicationContinuousGenerator(BaseGenerator):
         # Determine which medications this patient receives
         # Vasopressors: ~25% of ICU patients
         if self.rng.random() < 0.25 and los_hours >= 12:
-            # Primary vasopressor (usually norepinephrine)
+            # Primary vasopressor (weighted selection)
+            primary_agents = ["norepinephrine", "epinephrine", "dopamine", "dobutamine"]
+            primary_weights = [0.70, 0.15, 0.10, 0.05]
+            primary_vaso = self.rng.choice(primary_agents, p=primary_weights)
             records.extend(
                 self._generate_infusion(
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "norepinephrine",
+                    primary_vaso,
                     duration_hours=self._safe_uniform(12, min(72, los_hours)),
                 )
             )
 
-            # Some need second vasopressor
+            # Some need second vasopressor (vasopressin)
             if self.rng.random() < 0.3 and los_hours >= 24:
                 records.extend(
                     self._generate_infusion(
@@ -213,6 +216,20 @@ class MedicationContinuousGenerator(BaseGenerator):
                         admit_time + timedelta(hours=self._safe_uniform(2, min(12, los_hours / 2))),
                         discharge_time,
                         "vasopressin",
+                        duration_hours=self._safe_uniform(12, min(48, los_hours)),
+                    )
+                )
+
+            # Chance of a second primary vasopressor from remaining agents
+            if self.rng.random() < 0.2 and los_hours >= 24:
+                remaining = [a for a in primary_agents if a != primary_vaso]
+                second_vaso = self.rng.choice(remaining)
+                records.extend(
+                    self._generate_infusion(
+                        hospitalization_id,
+                        admit_time + timedelta(hours=self._safe_uniform(2, min(12, los_hours / 2))),
+                        discharge_time,
+                        second_vaso,
                         duration_hours=self._safe_uniform(12, min(48, los_hours)),
                     )
                 )
