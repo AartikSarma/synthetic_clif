@@ -16,10 +16,31 @@ class PatientGenerator(BaseGenerator):
 
     Creates patient table with:
     - patient_id (UUID format)
-    - sex_category, race_category, ethnicity_category (mCIDE categories)
+    - sex_category, race_category, ethnicity_category, language_category (mCIDE categories)
     - birth_date (realistic age distribution 18-95)
     - death_dttm (~15% mortality, correlated with hospitalizations)
     """
+
+    # Language categories per CLIF 2.1.0 schema
+    LANGUAGE_CATEGORIES = [
+        "English",
+        "Spanish",
+        "French",
+        "Haitian Creole",
+        "Italian",
+        "Portuguese",
+        "German",
+        "Chinese",
+        "Vietnamese",
+        "Korean",
+        "Tagalog",
+        "Arabic",
+        "Russian",
+        "Sign Language",
+        "Unknown or NA",
+    ]
+    # Weights roughly based on US demographics
+    LANGUAGE_WEIGHTS = [0.78, 0.12, 0.01, 0.005, 0.005, 0.01, 0.005, 0.02, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, 0.02]
 
     def __init__(
         self,
@@ -62,6 +83,13 @@ class PatientGenerator(BaseGenerator):
         ethnicity_weights = [0.18, 0.78, 0.04]
         ethnicity_categories = self.sample_category("ethnicity", n_patients, ethnicity_weights)
 
+        # Generate language categories
+        language_weights = np.array(self.LANGUAGE_WEIGHTS[:len(self.LANGUAGE_CATEGORIES)], dtype=float)
+        language_weights /= language_weights.sum()
+        language_categories = self.rng.choice(
+            self.LANGUAGE_CATEGORIES, size=n_patients, p=language_weights
+        ).tolist()
+
         # Generate birth dates (age distribution typical for ICU)
         # Bimodal: younger trauma/surgical, older medical
         ages = self._generate_age_distribution(n_patients)
@@ -83,11 +111,12 @@ class PatientGenerator(BaseGenerator):
         df = pd.DataFrame(
             {
                 "patient_id": patient_ids,
-                "sex_category": sex_categories,
-                "race_category": race_categories,
-                "ethnicity_category": ethnicity_categories,
                 "birth_date": birth_dates,
                 "death_dttm": death_dttms,
+                "race_category": race_categories,
+                "ethnicity_category": ethnicity_categories,
+                "sex_category": sex_categories,
+                "language_category": language_categories,
             }
         )
 
@@ -98,6 +127,7 @@ class PatientGenerator(BaseGenerator):
         # Add some missingness to demographics (rare)
         df = self.add_missingness(df, "race_category", 0.03)
         df = self.add_missingness(df, "ethnicity_category", 0.02)
+        df = self.add_missingness(df, "language_category", 0.05)
 
         return df
 

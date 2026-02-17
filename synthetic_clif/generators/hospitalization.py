@@ -189,17 +189,40 @@ class HospitalizationGenerator(BaseGenerator):
         # Sort chronologically for same patient
         return sorted(admission_times)
 
+    # CLIF 2.1.0 schema permissible values
+    ADMISSION_TYPE_CATEGORIES = ["ed", "facility", "osh", "direct", "elective", "other"]
+    DISCHARGE_CATEGORIES = [
+        "Home",
+        "Skilled Nursing Facility (SNF)",
+        "Expired",
+        "Acute Inpatient Rehab Facility",
+        "Hospice",
+        "Long Term Care Hospital (LTACH)",
+        "Acute Care Hospital",
+        "Group Home",
+        "Chemical Dependency",
+        "Against Medical Advice (AMA)",
+        "Assisted Living",
+        "Still Admitted",
+        "Missing",
+        "Other",
+        "Psychiatric Hospital",
+        "Shelter",
+        "Jail",
+    ]
+
     def _sample_admission_type(self) -> str:
-        """Sample admission type with realistic weights."""
-        weights = [0.50, 0.25, 0.20, 0.0, 0.03, 0.01, 0.01]
-        return self.sample_category("admission_type", 1, weights)[0]
+        """Sample admission type with realistic weights per CLIF 2.1.0 schema."""
+        weights = [0.50, 0.10, 0.10, 0.15, 0.10, 0.05]  # ed, facility, osh, direct, elective, other
+        weights = np.array(weights, dtype=float)
+        weights /= weights.sum()
+        return self.rng.choice(self.ADMISSION_TYPE_CATEGORIES, p=weights)
 
     def _sample_discharge_category(self) -> str:
-        """Sample non-death discharge category."""
-        # Weights for non-expired discharges
-        weights = [0.55, 0.15, 0.0, 0.05, 0.08, 0.05, 0.02, 0.05, 0.03, 0.02]
-        result = self.sample_category("discharge", 1, weights)[0]
-        # Avoid "Expired" for non-terminal cases
-        if result == "Expired":
-            return "Home"
-        return result
+        """Sample non-death discharge category per CLIF 2.1.0 schema."""
+        # Weights for non-expired discharges (excluding "Expired" at index 2)
+        non_expired_cats = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
+        weights = [0.55, 0.12, 0.05, 0.05, 0.03, 0.02, 0.02, 0.01, 0.04, 0.03, 0.01, 0.04, 0.02, 0.005, 0.005]
+        weights = np.array(weights[:len(non_expired_cats)], dtype=float)
+        weights /= weights.sum()
+        return self.rng.choice(non_expired_cats, p=weights)
