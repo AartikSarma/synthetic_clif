@@ -76,9 +76,11 @@ class CLIFSchema:
         name="adt",
         columns=[
             ColumnSchema("hospitalization_id", "string", nullable=False),
+            ColumnSchema("hospital_id", "string", nullable=False),
             ColumnSchema("in_dttm", "datetime64[ns, UTC]", nullable=False),
             ColumnSchema("out_dttm", "datetime64[ns, UTC]"),
             ColumnSchema("location_category", "string", mcide_category="location"),
+            ColumnSchema("location_type", "string"),
         ],
         foreign_keys={"hospitalization_id": "hospitalization.hospitalization_id"},
         is_beta=True,
