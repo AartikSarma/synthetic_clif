@@ -5,7 +5,7 @@ with realistic properties including missingness, outliers, irregular measurement
 frequency, temporal autocorrelation, and variable hospital length of stay.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"
 
 from synthetic_clif.generators.dataset import SyntheticCLIFDataset
 

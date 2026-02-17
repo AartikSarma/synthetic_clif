@@ -1,6 +1,6 @@
 [project]
 name = "synthetic_clif"
-version = "0.1.0"
+version = "0.3.0"
 description = "Generate synthetic CLIF (Common Longitudinal ICU data Format) datasets"
 requires-python = ">= 3.10"
 dependencies = [
