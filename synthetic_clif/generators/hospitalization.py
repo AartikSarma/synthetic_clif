@@ -31,8 +31,8 @@ class HospitalizationGenerator(BaseGenerator):
         patients_df: pd.DataFrame,
         n_hospitalizations: int,
         reference_date: Optional[datetime] = None,
-        median_los_days: float = 7.0,
-        los_sigma: float = 0.9,
+        median_los_days: float = 6.4,
+        los_sigma: float = 1.4,
     ) -> pd.DataFrame:
         """Generate hospitalizations linked to patients.
 
@@ -192,7 +192,9 @@ class HospitalizationGenerator(BaseGenerator):
 
     # CLIF 2.1.0 permissible values
     ADMISSION_TYPE_CATEGORIES = ["ed", "facility", "osh", "direct", "elective", "other"]
-    ADMISSION_TYPE_WEIGHTS = [0.50, 0.10, 0.10, 0.15, 0.10, 0.05]
+    # Consortium aggregate: ED 65.2%, Facility 3.3%, OSH 14.5%, Direct 5.8%,
+    # Elective 7.9%, Other 2.5%
+    ADMISSION_TYPE_WEIGHTS = [0.652, 0.033, 0.145, 0.058, 0.079, 0.025]
 
     DISCHARGE_CATEGORIES = [
         "Home", "Home Health", "SNF", "Expired", "Rehab",

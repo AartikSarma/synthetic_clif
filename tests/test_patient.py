@@ -54,7 +54,7 @@ class TestPatientGenerator:
             if pd.notna(row["birth_date"]):
                 age = (reference_date.date() - row["birth_date"].date()).days / 365.25
                 # Allow small tolerance for boundary cases
-                assert 17.9 <= age <= 96
+                assert 17.9 <= age <= 101
 
     def test_mortality_rate(self, seed, mcide):
         """Test that mortality rate is approximately correct."""

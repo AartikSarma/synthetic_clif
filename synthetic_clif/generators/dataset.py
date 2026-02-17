@@ -66,6 +66,7 @@ class SyntheticCLIFDataset:
         seed: int = 42,
         mcide_dir: Optional[Path] = None,
         include_concept_tables: bool = True,
+        workers: int = 1,
     ):
         """Initialize the synthetic dataset generator.
 
@@ -75,11 +76,14 @@ class SyntheticCLIFDataset:
             seed: Random seed for reproducibility
             mcide_dir: Optional path to mCIDE CSV directory
             include_concept_tables: Whether to generate concept tables (draft status)
+            workers: Number of parallel workers (1 = sequential, >1 = parallel big-3)
         """
         self.n_patients = n_patients
         self.n_hospitalizations = n_hospitalizations
         self.seed = seed
+        self.mcide_dir = mcide_dir
         self.include_concept_tables = include_concept_tables
+        self.workers = max(1, workers)
 
         # Initialize shared mCIDE loader
         self.mcide = MCIDELoader(mcide_dir)
@@ -203,21 +207,27 @@ class SyntheticCLIFDataset:
         self._tables["adt"] = adt
         _log("adt", t, len(adt))
 
-        # Generate time-series tables
-        t = time.time()
-        vitals = self.vitals_gen.generate(hospitalizations, adt)
-        self._tables["vitals"] = vitals
-        _log("vitals", t, len(vitals))
+        # Generate big-3 time-series tables (vitals, labs, respiratory)
+        if self.workers > 1:
+            self._generate_big3_parallel(hospitalizations, adt, _log)
+        else:
+            t = time.time()
+            vitals = self.vitals_gen.generate(hospitalizations, adt)
+            self._tables["vitals"] = vitals
+            _log("vitals", t, len(vitals))
 
-        t = time.time()
-        labs = self.labs_gen.generate(hospitalizations)
-        self._tables["labs"] = labs
-        _log("labs", t, len(labs))
+            t = time.time()
+            labs = self.labs_gen.generate(hospitalizations)
+            self._tables["labs"] = labs
+            _log("labs", t, len(labs))
 
-        t = time.time()
-        respiratory = self.respiratory_gen.generate(hospitalizations)
-        self._tables["respiratory_support"] = respiratory
-        _log("respiratory_support", t, len(respiratory))
+            t = time.time()
+            respiratory = self.respiratory_gen.generate(hospitalizations)
+            self._tables["respiratory_support"] = respiratory
+            _log("respiratory_support", t, len(respiratory))
+
+        # Generate remaining time-series tables (reference self._tables for deps)
+        respiratory = self._tables["respiratory_support"]
 
         t = time.time()
         med_continuous = self.med_continuous_gen.generate(hospitalizations, respiratory)
@@ -338,6 +348,63 @@ class SyntheticCLIFDataset:
         _log(f"  Total: {total_rows:,} rows across {len(self._tables)} tables [{total_elapsed:.2f}s]")
 
         return self._tables
+
+    def _generate_big3_parallel(self, hospitalizations, adt, _log):
+        """Generate vitals, labs, and respiratory in parallel.
+
+        Uses ThreadPoolExecutor to run the 3 generators concurrently,
+        with each generator using ProcessPoolExecutor internally to
+        split hospitalizations into chunks across worker processes.
+        """
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        from synthetic_clif.utils.parallel import parallel_generate_chunked
+
+        _log(f"  [parallel mode: {self.workers} workers]")
+
+        t = time.time()
+
+        def gen_vitals():
+            return parallel_generate_chunked(
+                VitalsGenerator,
+                hospitalizations,
+                self.workers,
+                self.vitals_gen._seed,
+                self.mcide_dir,
+                extra_dfs={"adt_df": adt},
+            )
+
+        def gen_labs():
+            return parallel_generate_chunked(
+                LabsGenerator,
+                hospitalizations,
+                self.workers,
+                self.labs_gen._seed,
+                self.mcide_dir,
+            )
+
+        def gen_respiratory():
+            return parallel_generate_chunked(
+                RespiratoryGenerator,
+                hospitalizations,
+                self.workers,
+                self.respiratory_gen._seed,
+                self.mcide_dir,
+            )
+
+        with ThreadPoolExecutor(max_workers=3) as thread_pool:
+            vitals_future = thread_pool.submit(gen_vitals)
+            labs_future = thread_pool.submit(gen_labs)
+            respiratory_future = thread_pool.submit(gen_respiratory)
+
+            self._tables["vitals"] = vitals_future.result()
+            self._tables["labs"] = labs_future.result()
+            self._tables["respiratory_support"] = respiratory_future.result()
+
+        _log("vitals (parallel)", t, len(self._tables["vitals"]))
+        _log("labs (parallel)", t, len(self._tables["labs"]))
+        _log("respiratory_support (parallel)", t, len(self._tables["respiratory_support"]))
 
     def to_parquet(self, output_dir: Path, prefix: str = "clif_") -> None:
         """Write each table to a parquet file.
