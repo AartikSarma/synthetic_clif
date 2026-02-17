@@ -142,7 +142,7 @@ class RespiratoryGenerator(BaseGenerator):
         # ~40% need some oxygen, ~15% need mechanical ventilation
         initial_status = self.rng.choice(
             ["room_air", "nasal_cannula", "high_flow", "nippv", "imv"],
-            p=[0.45, 0.25, 0.10, 0.08, 0.12],
+            p=[0.25, 0.20, 0.12, 0.12, 0.31],
         )
 
         device_map = {
@@ -172,7 +172,7 @@ class RespiratoryGenerator(BaseGenerator):
 
         # Track device trajectory
         current_fio2 = self._get_initial_fio2(current_device)
-        improving = self.rng.random() < 0.7  # 70% improve over stay
+        improving = self.rng.random() < 0.55  # 55% improve over stay
 
         for ts in timestamps:
             # Check for tracheostomy
@@ -220,7 +220,7 @@ class RespiratoryGenerator(BaseGenerator):
         current_idx = device_hierarchy.index(current_device)
 
         # Small probability of change per time step
-        if self.rng.random() < 0.02:  # 2% chance
+        if self.rng.random() < 0.01:  # 1% chance
             if improving:
                 # Wean (go down the hierarchy)
                 if current_idx > 0:

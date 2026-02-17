@@ -44,7 +44,7 @@ class PatientGenerator(BaseGenerator):
     def generate(
         self,
         n_patients: int,
-        mortality_rate: float = 0.15,
+        mortality_rate: float = 0.258,
         reference_date: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """Generate patient demographics.

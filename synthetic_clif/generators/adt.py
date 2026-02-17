@@ -36,7 +36,7 @@ class ADTGenerator(BaseGenerator):
         "short_icu": ["ICU", "Ward"],
     }
 
-    FLOW_WEIGHTS = [0.35, 0.25, 0.15, 0.15, 0.10]
+    FLOW_WEIGHTS = [0.45, 0.30, 0.05, 0.05, 0.15]
 
     # CLIF 2.1.0 hospital types
     HOSPITAL_TYPES = ["academic", "community", "LTACH"]
