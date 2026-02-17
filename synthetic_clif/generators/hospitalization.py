@@ -189,17 +189,33 @@ class HospitalizationGenerator(BaseGenerator):
         # Sort chronologically for same patient
         return sorted(admission_times)
 
+    # CLIF 2.1.0 permissible values
+    ADMISSION_TYPE_CATEGORIES = ["ed", "facility", "osh", "direct", "elective", "other"]
+    ADMISSION_TYPE_WEIGHTS = [0.50, 0.10, 0.10, 0.15, 0.10, 0.05]
+
+    DISCHARGE_CATEGORIES = [
+        "Home", "Home Health", "SNF", "Expired", "Rehab",
+        "Hospice", "LTACH", "Acute Care Hospital",
+        "AMA", "Left AMA",
+        "Psych", "Jail", "Homeless",
+        "Still In", "Unknown", "Other", "Other Facility",
+    ]
+
     def _sample_admission_type(self) -> str:
-        """Sample admission type with realistic weights."""
-        weights = [0.50, 0.25, 0.20, 0.0, 0.03, 0.01, 0.01]
-        return self.sample_category("admission_type", 1, weights)[0]
+        """Sample admission type per CLIF 2.1.0 schema."""
+        weights = np.array(self.ADMISSION_TYPE_WEIGHTS, dtype=float)
+        weights /= weights.sum()
+        return self.rng.choice(self.ADMISSION_TYPE_CATEGORIES, p=weights)
 
     def _sample_discharge_category(self) -> str:
-        """Sample non-death discharge category."""
-        # Weights for non-expired discharges
-        weights = [0.55, 0.15, 0.0, 0.05, 0.08, 0.05, 0.02, 0.05, 0.03, 0.02]
-        result = self.sample_category("discharge", 1, weights)[0]
-        # Avoid "Expired" for non-terminal cases
-        if result == "Expired":
-            return "Home"
-        return result
+        """Sample non-death discharge category per CLIF 2.1.0 schema."""
+        non_expired = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
+        # 16 weights for 16 non-Expired categories
+        weights = np.array([
+            0.55, 0.03, 0.12, 0.05, 0.05,
+            0.03, 0.02, 0.02, 0.01, 0.01,
+            0.01, 0.005, 0.04, 0.005, 0.005, 0.005,
+        ], dtype=float)
+        weights = weights[:len(non_expired)]
+        weights /= weights.sum()
+        return self.rng.choice(non_expired, p=weights)

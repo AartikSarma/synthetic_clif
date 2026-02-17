@@ -316,13 +316,32 @@ class MedicationContinuousGenerator(BaseGenerator):
                     "admin_dttm": ts,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": self._get_med_group_continuous(params["indication"]),
                     "med_dose": round(current_dose, 3),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": "IV",
+                    "med_route_category": "iv",
+                    "mar_action_category": self.rng.choice(
+                        ["dose_change", "going", "start", "stop", "verify"],
+                        p=[0.3, 0.4, 0.1, 0.1, 0.1],
+                    ),
+                    "mar_action_group": "administered",
                 }
             )
 
         return records
+
+    @staticmethod
+    def _get_med_group_continuous(indication: str) -> str:
+        """Map indication to CLIF 2.1.0 med_group."""
+        mapping = {
+            "vasopressor": "vasoactives",
+            "inotrope": "vasoactives",
+            "sedation": "sedation",
+            "analgesia": "sedation",
+            "anticoagulation": "anticoagulation",
+            "glycemic": "endocrine",
+        }
+        return mapping.get(indication, "others")
 
 
 class MedicationIntermittentGenerator(BaseGenerator):
@@ -560,6 +579,9 @@ class MedicationIntermittentGenerator(BaseGenerator):
             # Determine MAR action
             action = self._sample_mar_action()
 
+            mar_group = "administered" if action in ["given", "bolus"] else (
+                "not_administered" if action == "not_given" else "other"
+            )
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -567,10 +589,12 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     "admin_dttm": current_time,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": self._get_med_group_intermittent(params["indication"]),
                     "med_dose": round(dose, 0),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": params["route"],
+                    "med_route_category": params["route"].lower(),
                     "mar_action_category": action,
+                    "mar_action_group": mar_group,
                 }
             )
 
@@ -581,9 +605,19 @@ class MedicationIntermittentGenerator(BaseGenerator):
         return records
 
     def _sample_mar_action(self) -> str:
-        """Sample MAR action with realistic distribution."""
-        # Most doses given, small percentage held/refused
+        """Sample MAR action per CLIF 2.1.0 schema."""
         return self.rng.choice(
-            ["Given", "Held", "Refused", "Not Given"],
-            p=[0.92, 0.04, 0.02, 0.02],
+            ["given", "bolus", "not_given", "other"],
+            p=[0.88, 0.04, 0.06, 0.02],
         )
+
+    @staticmethod
+    def _get_med_group_intermittent(indication: str) -> str:
+        """Map indication to CLIF 2.1.0 med_group for intermittent meds."""
+        mapping = {
+            "antibiotic": "CMS_sepsis_qualifying_antibiotics",
+            "ppi": "other",
+            "cardiac": "other",
+            "prophylaxis": "other",
+        }
+        return mapping.get(indication, "other")

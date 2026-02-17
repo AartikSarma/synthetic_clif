@@ -26,6 +26,8 @@ class TestMedicationContinuousGenerator:
         assert "med_dose" in df.columns
         assert "med_dose_unit" in df.columns
         assert "med_route_category" in df.columns
+        assert "med_group" in df.columns
+        assert "mar_action_category" in df.columns
 
     def test_med_categories_valid(self, hospitalizations_df, seed, mcide):
         """Test that medication categories are valid."""
@@ -63,8 +65,7 @@ class TestMedicationContinuousGenerator:
         med_gen = MedicationContinuousGenerator(seed=seed, mcide=mcide)
         df = med_gen.generate(hospitalizations_df, resp_df)
 
-        # Should have more sedation for ventilated patients
-        assert len(df) >= 0  # Basic validity check
+        assert len(df) >= 0
 
 
 class TestMedicationIntermittentGenerator:
@@ -84,6 +85,7 @@ class TestMedicationIntermittentGenerator:
         assert "med_dose_unit" in df.columns
         assert "med_route_category" in df.columns
         assert "mar_action_category" in df.columns
+        assert "med_group" in df.columns
 
     def test_mar_action_valid(self, hospitalizations_df, seed, mcide):
         """Test that MAR actions are valid mCIDE values."""
@@ -101,8 +103,8 @@ class TestMedicationIntermittentGenerator:
         df = gen.generate(hospitalizations_df)
 
         if len(df) > 0:
-            given_rate = (df["mar_action_category"] == "Given").mean()
-            assert given_rate > 0.85  # Should be mostly given
+            given_rate = (df["mar_action_category"] == "given").mean()
+            assert given_rate > 0.85
 
     def test_scheduled_timing(self, hospitalizations_df, seed, mcide):
         """Test that scheduled medications have regular timing."""
@@ -110,6 +112,5 @@ class TestMedicationIntermittentGenerator:
         df = gen.generate(hospitalizations_df)
 
         if len(df) > 0:
-            # Check that same order_id has multiple administrations
             order_counts = df.groupby("med_order_id").size()
-            assert order_counts.max() > 1  # At least one med with multiple doses
+            assert order_counts.max() > 1

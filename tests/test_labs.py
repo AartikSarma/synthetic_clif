@@ -23,7 +23,7 @@ class TestLabsGenerator:
         assert "lab_value" in df.columns
         assert "lab_value_numeric" in df.columns
         assert "reference_unit" in df.columns
-        assert "lab_type_category" in df.columns
+        assert "lab_order_category" in df.columns
 
     def test_lab_categories_valid(self, hospitalizations_df, seed, mcide):
         """Test that lab categories are valid mCIDE values."""
@@ -77,13 +77,13 @@ class TestLabsGenerator:
             if lab_cat in expected_units and pd.notna(row["reference_unit"]):
                 assert row["reference_unit"] == expected_units[lab_cat]
 
-    def test_lab_type_valid(self, hospitalizations_df, seed, mcide):
-        """Test that lab types are valid mCIDE values."""
+    def test_lab_order_category_valid(self, hospitalizations_df, seed, mcide):
+        """Test that lab order categories are valid CLIF 2.1.0 values."""
         gen = LabsGenerator(seed=seed, mcide=mcide)
         df = gen.generate(hospitalizations_df)
 
-        valid_types = set(mcide.get_category("lab_type"))
-        for lt in df["lab_type_category"].dropna():
+        valid_types = set(mcide.get_category("lab_order"))
+        for lt in df["lab_order_category"].dropna():
             assert lt in valid_types
 
     def test_admission_labs(self, hospitalizations_df, seed, mcide):

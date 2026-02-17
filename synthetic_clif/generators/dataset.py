@@ -339,11 +339,12 @@ class SyntheticCLIFDataset:
 
         return self._tables
 
-    def to_parquet(self, output_dir: Path) -> None:
+    def to_parquet(self, output_dir: Path, prefix: str = "clif_") -> None:
         """Write each table to a parquet file.
 
         Args:
             output_dir: Directory to write parquet files to
+            prefix: Filename prefix (default "clif_" for CLIF compatibility)
         """
         if not self._tables:
             self.generate()
@@ -358,17 +359,18 @@ class SyntheticCLIFDataset:
                 print(f"  Skipping empty table: {table_name}")
                 continue
 
-            output_path = output_dir / f"{table_name}.parquet"
+            output_path = output_dir / f"{prefix}{table_name}.parquet"
             df.to_parquet(output_path, index=False)
-            print(f"  Wrote {table_name}.parquet ({len(df)} rows)")
+            print(f"  Wrote {prefix}{table_name}.parquet ({len(df)} rows)")
 
         print("Done!")
 
-    def to_csv(self, output_dir: Path) -> None:
+    def to_csv(self, output_dir: Path, prefix: str = "clif_") -> None:
         """Write each table to a CSV file.
 
         Args:
             output_dir: Directory to write CSV files to
+            prefix: Filename prefix (default "clif_" for CLIF compatibility)
         """
         if not self._tables:
             self.generate()
@@ -383,9 +385,9 @@ class SyntheticCLIFDataset:
                 print(f"  Skipping empty table: {table_name}")
                 continue
 
-            output_path = output_dir / f"{table_name}.csv"
+            output_path = output_dir / f"{prefix}{table_name}.csv"
             df.to_csv(output_path, index=False)
-            print(f"  Wrote {table_name}.csv ({len(df)} rows)")
+            print(f"  Wrote {prefix}{table_name}.csv ({len(df)} rows)")
 
         print("Done!")
 

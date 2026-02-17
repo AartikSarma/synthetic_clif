@@ -18,12 +18,13 @@ class TestMicrobiologyCultureGenerator:
         df = gen.generate(hospitalizations_df)
 
         assert "hospitalization_id" in df.columns
-        assert "culture_id" in df.columns
+        assert "patient_id" in df.columns
+        assert "organism_id" in df.columns
         assert "order_dttm" in df.columns
         assert "collect_dttm" in df.columns
         assert "result_dttm" in df.columns
         assert "fluid_category" in df.columns
-        assert "organism_id" in df.columns
+        assert "method_category" in df.columns
         assert "organism_category" in df.columns
         assert "organism_group" in df.columns
 
@@ -59,15 +60,15 @@ class TestMicrobiologyCultureGenerator:
             for oc in df["organism_category"].dropna():
                 assert oc in valid_organisms
 
-    def test_positive_cultures_have_organism(self, hospitalizations_df, seed, mcide):
-        """Test that positive cultures have organism information."""
+    def test_method_category_valid(self, hospitalizations_df, seed, mcide):
+        """Test that method categories are valid."""
         gen = MicrobiologyCultureGenerator(seed=seed, mcide=mcide)
         df = gen.generate(hospitalizations_df)
 
         if len(df) > 0:
-            positive = df[df["organism_id"].notna()]
-            # Positive cultures should have organism category
-            assert positive["organism_category"].notna().all()
+            valid_methods = {"culture", "gram_stain", "smear"}
+            for mc in df["method_category"].dropna():
+                assert mc in valid_methods
 
 
 class TestMicrobiologySusceptibilityGenerator:
@@ -82,10 +83,9 @@ class TestMicrobiologySusceptibilityGenerator:
         df = sus_gen.generate(cultures_df)
 
         assert "organism_id" in df.columns
-        assert "antibiotic_name" in df.columns
-        assert "antibiotic_category" in df.columns
+        assert "antimicrobial_name" in df.columns
+        assert "antimicrobial_category" in df.columns
         assert "susceptibility_category" in df.columns
-        assert "mic_value" in df.columns
 
     def test_organism_id_valid(self, hospitalizations_df, seed, mcide):
         """Test that organism IDs reference valid cultures."""

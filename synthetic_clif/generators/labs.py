@@ -20,7 +20,7 @@ class LabsGenerator(BaseGenerator):
     - lab_category (mCIDE categories)
     - lab_value, lab_value_numeric (with realistic ranges)
     - reference_unit (standard units)
-    - lab_type_category (Routine, STAT, etc.)
+    - lab_order_category (Routine, STAT, etc.)
 
     Features:
     - Daily routine labs, PRN based on clinical status
@@ -289,6 +289,19 @@ class LabsGenerator(BaseGenerator):
 
         return records
 
+    # Map panel names to CLIF 2.1.0 lab_order_category values
+    PANEL_TO_ORDER_CATEGORY = {
+        "basic_metabolic": "bmp",
+        "comprehensive_metabolic": "bmp",
+        "cbc": "cbc",
+        "coagulation": "coags",
+        "abg": "blood_gas",
+        "lactate": "blood_gas",
+        "liver": "lft",
+        "cardiac": "misc",
+        "inflammatory": "misc",
+    }
+
     def _generate_panel(
         self,
         hospitalization_id: str,
@@ -300,6 +313,7 @@ class LabsGenerator(BaseGenerator):
         """Generate a lab panel."""
         records = []
         labs = self.LAB_PANELS.get(panel_name, [panel_name])
+        order_category = self.PANEL_TO_ORDER_CATEGORY.get(panel_name, "misc")
 
         # Generate ordered timestamps: order -> collect -> result
         collect_delay = int(self.rng.integers(5, 30))  # minutes
@@ -337,7 +351,7 @@ class LabsGenerator(BaseGenerator):
                     "lab_value": value_str,
                     "lab_value_numeric": value,
                     "reference_unit": reference_units.get(lab_cat, ""),
-                    "lab_type_category": lab_type,
+                    "lab_order_category": order_category,
                 }
             )
 
