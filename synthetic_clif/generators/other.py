@@ -242,7 +242,7 @@ class CRRTTherapyGenerator(BaseGenerator):
     def generate(
         self,
         hospitalizations_df: pd.DataFrame,
-        crrt_rate: float = 0.08,
+        crrt_rate: float = 0.045,
     ) -> pd.DataFrame:
         """Generate CRRT therapy data."""
         records = []

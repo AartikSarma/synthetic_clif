@@ -64,13 +64,17 @@ class PatientGenerator(BaseGenerator):
         patient_ids = self.generate_uuids(n_patients)
 
         # Generate demographics
-        sex_weights = [0.48, 0.48, 0.02, 0.02]  # Female, Male, Other, Unknown
+        # Consortium aggregate: Male 54.5%, Female 45.5%, Other <0.1%, Unknown <0.1%
+        sex_weights = [0.455, 0.545, 0.0001, 0.0001]  # Female, Male, Other, Unknown
         sex_categories = self.sample_category("sex", n_patients, sex_weights)
 
-        race_weights = [0.01, 0.06, 0.13, 0.01, 0.70, 0.05, 0.04]
+        # Consortium aggregate: AI/AN 0.5%, Asian 4.5%, Black 19.5%, NHPI 0.3%,
+        # White 63.3%, Other 5.2%, Unknown 6.6%
+        race_weights = [0.005, 0.045, 0.195, 0.003, 0.633, 0.052, 0.066]
         race_categories = self.sample_category("race", n_patients, race_weights)
 
-        ethnicity_weights = [0.18, 0.78, 0.04]
+        # Consortium aggregate: Hispanic 5.8%, Non-Hispanic 86.7%, Unknown 7.4%
+        ethnicity_weights = [0.058, 0.867, 0.074]
         ethnicity_categories = self.sample_category("ethnicity", n_patients, ethnicity_weights)
 
         # Generate language categories
@@ -124,21 +128,22 @@ class PatientGenerator(BaseGenerator):
     def _generate_age_distribution(self, n: int) -> np.ndarray:
         """Generate age distribution typical for ICU population.
 
+        Consortium aggregate: median 66 [Q1=47, Q3=79].
         Uses mixture of distributions:
-        - 20% younger (trauma, surgical): mean 35, std 12
-        - 80% older (medical): mean 68, std 15
+        - 15% younger (trauma, surgical): mean 38, std 10
+        - 85% older (medical): mean 72, std 13
 
-        Returns ages in years, bounded to [18, 95].
+        Returns ages in years, bounded to [18, 100].
         """
         ages = np.zeros(n)
 
-        # Young cohort (20%)
-        n_young = int(n * 0.2)
-        ages[:n_young] = self.rng.normal(35, 12, n_young)
+        # Young cohort (15%)
+        n_young = int(n * 0.15)
+        ages[:n_young] = self.rng.normal(38, 10, n_young)
 
-        # Older cohort (80%)
-        ages[n_young:] = self.rng.normal(68, 15, n - n_young)
+        # Older cohort (85%)
+        ages[n_young:] = self.rng.normal(72, 13, n - n_young)
 
         # Shuffle and bound
         self.rng.shuffle(ages)
-        return np.clip(ages, 18, 95)
+        return np.clip(ages, 18, 100)
