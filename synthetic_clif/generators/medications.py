@@ -22,93 +22,102 @@ class MedicationContinuousGenerator(BaseGenerator):
     - Dose titration patterns over time
     """
 
-    # Medication parameters: (typical_dose, unit, dose_range, titration_delta)
+    # Medication parameters per CLIF 2.1.0 schema
+    # med_group permissible values: vasoactives, sedation, diuretics, anticoagulation,
+    # cardiac, paralytics, pulmonary vasodilators (IV), pulmonary vasodilators (inhaled),
+    # gastrointestinal, Inhaled, endocrine, fluids_electrolytes, others
     MED_PARAMS = {
         "norepinephrine": {
             "dose_range": (0.01, 0.5),
             "unit": "mcg/kg/min",
             "titration": 0.02,
-            "indication": "vasopressor",
+            "med_group": "vasoactives",
         },
         "epinephrine": {
             "dose_range": (0.01, 0.3),
             "unit": "mcg/kg/min",
             "titration": 0.01,
-            "indication": "vasopressor",
+            "med_group": "vasoactives",
         },
         "vasopressin": {
             "dose_range": (0.01, 0.04),
             "unit": "units/min",
             "titration": 0.005,
-            "indication": "vasopressor",
+            "med_group": "vasoactives",
         },
         "dopamine": {
             "dose_range": (2, 20),
             "unit": "mcg/kg/min",
             "titration": 2,
-            "indication": "vasopressor",
+            "med_group": "vasoactives",
         },
         "dobutamine": {
             "dose_range": (2, 20),
             "unit": "mcg/kg/min",
             "titration": 2.5,
-            "indication": "inotrope",
+            "med_group": "vasoactives",
         },
         "phenylephrine": {
             "dose_range": (20, 200),
             "unit": "mcg/min",
             "titration": 20,
-            "indication": "vasopressor",
+            "med_group": "vasoactives",
         },
         "milrinone": {
             "dose_range": (0.125, 0.75),
             "unit": "mcg/kg/min",
             "titration": 0.125,
-            "indication": "inotrope",
+            "med_group": "vasoactives",
         },
         "propofol": {
             "dose_range": (5, 80),
             "unit": "mcg/kg/min",
             "titration": 10,
-            "indication": "sedation",
+            "med_group": "sedation",
         },
         "dexmedetomidine": {
             "dose_range": (0.2, 1.5),
             "unit": "mcg/kg/hr",
             "titration": 0.1,
-            "indication": "sedation",
+            "med_group": "sedation",
         },
         "midazolam": {
             "dose_range": (0.5, 10),
             "unit": "mg/hr",
             "titration": 1,
-            "indication": "sedation",
+            "med_group": "sedation",
         },
         "fentanyl": {
             "dose_range": (25, 200),
             "unit": "mcg/hr",
             "titration": 25,
-            "indication": "analgesia",
+            "med_group": "sedation",
         },
         "morphine": {
             "dose_range": (1, 10),
             "unit": "mg/hr",
             "titration": 1,
-            "indication": "analgesia",
+            "med_group": "sedation",
         },
         "heparin": {
             "dose_range": (500, 2000),
             "unit": "units/hr",
             "titration": 100,
-            "indication": "anticoagulation",
+            "med_group": "anticoagulation",
         },
         "insulin": {
             "dose_range": (0.5, 10),
             "unit": "units/hr",
             "titration": 0.5,
-            "indication": "glycemic",
+            "med_group": "endocrine",
         },
     }
+
+    # MAR action categories per CLIF 2.1.0 schema
+    # mar_action_category: dose_change, going, start, stop, verify, other
+    # mar_action_group: administered, not_administered, other
+    MAR_ACTION_CATEGORIES = ["dose_change", "going", "start", "stop", "verify", "other"]
+    MAR_ACTION_WEIGHTS = [0.30, 0.35, 0.10, 0.10, 0.10, 0.05]
 
     def generate(
         self,
@@ -309,6 +318,19 @@ class MedicationContinuousGenerator(BaseGenerator):
                     current_dose + delta, dose_range[0], dose_range[1]
                 )
 
+            # Determine MAR action category and group per CLIF 2.1.0 schema
+            mar_action_weights = np.array(self.MAR_ACTION_WEIGHTS, dtype=float)
+            mar_action_weights /= mar_action_weights.sum()
+            mar_action_category = self.rng.choice(self.MAR_ACTION_CATEGORIES, p=mar_action_weights)
+            
+            # Map to mar_action_group
+            if mar_action_category in ["going", "start", "dose_change"]:
+                mar_action_group = "administered"
+            elif mar_action_category == "stop":
+                mar_action_group = "not_administered"
+            else:
+                mar_action_group = "other"
+
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -316,9 +338,12 @@ class MedicationContinuousGenerator(BaseGenerator):
                     "admin_dttm": ts,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": params["med_group"],
                     "med_dose": round(current_dose, 3),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": "IV",
+                    "med_route_category": "iv",  # lowercase per schema
+                    "mar_action_category": mar_action_category,
+                    "mar_action_group": mar_action_group,
                 }
             )
 
@@ -334,72 +359,129 @@ class MedicationIntermittentGenerator(BaseGenerator):
     - MAR action categories (given, held, refused)
     """
 
-    # Common intermittent medications
+    # Common intermittent medications per CLIF 2.1.0 schema
+    # med_group permissible values: CMS_sepsis_qualifying_antibiotics, analgesia, 
+    # antipsychotic, anxiolytic, car_t, other, paralytics, sedation, steroid, vasopressor
+    # med_route_category: enteral, im, iv, buccal_sublingual, intrapleural
     MED_SCHEDULES = {
         "vancomycin": {
             "dose_range": (1000, 1500),
             "unit": "mg",
-            "route": "IV",
+            "route": "iv",
             "frequency_hours": 12,
-            "indication": "antibiotic",
+            "med_group": "CMS_sepsis_qualifying_antibiotics",
         },
         "piperacillin_tazobactam": {
             "dose_range": (3375, 4500),
             "unit": "mg",
-            "route": "IV",
+            "route": "iv",
             "frequency_hours": 6,
-            "indication": "antibiotic",
+            "med_group": "CMS_sepsis_qualifying_antibiotics",
         },
         "cefepime": {
             "dose_range": (1000, 2000),
             "unit": "mg",
-            "route": "IV",
+            "route": "iv",
             "frequency_hours": 8,
-            "indication": "antibiotic",
+            "med_group": "CMS_sepsis_qualifying_antibiotics",
         },
         "meropenem": {
             "dose_range": (1000, 2000),
             "unit": "mg",
-            "route": "IV",
+            "route": "iv",
             "frequency_hours": 8,
-            "indication": "antibiotic",
+            "med_group": "CMS_sepsis_qualifying_antibiotics",
         },
         "pantoprazole": {
             "dose_range": (40, 40),
             "unit": "mg",
-            "route": "IV",
+            "route": "iv",
             "frequency_hours": 24,
-            "indication": "ppi",
+            "med_group": "other",
         },
         "metoprolol": {
             "dose_range": (25, 100),
             "unit": "mg",
-            "route": "PO",
+            "route": "enteral",
             "frequency_hours": 12,
-            "indication": "cardiac",
+            "med_group": "other",
         },
         "lisinopril": {
             "dose_range": (5, 40),
             "unit": "mg",
-            "route": "PO",
+            "route": "enteral",
             "frequency_hours": 24,
-            "indication": "cardiac",
+            "med_group": "other",
         },
         "aspirin": {
             "dose_range": (81, 325),
             "unit": "mg",
-            "route": "PO",
+            "route": "enteral",
             "frequency_hours": 24,
-            "indication": "cardiac",
+            "med_group": "other",
         },
         "enoxaparin": {
             "dose_range": (40, 80),
             "unit": "mg",
-            "route": "SC",
+            "route": "im",
             "frequency_hours": 12,
-            "indication": "prophylaxis",
+            "med_group": "other",
+        },
+        "fentanyl": {
+            "dose_range": (25, 100),
+            "unit": "mcg",
+            "route": "iv",
+            "frequency_hours": 4,
+            "med_group": "analgesia",
+        },
+        "morphine": {
+            "dose_range": (2, 10),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 4,
+            "med_group": "analgesia",
+        },
+        "dexamethasone": {
+            "dose_range": (4, 10),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 6,
+            "med_group": "steroid",
+        },
+        "methylprednisolone": {
+            "dose_range": (40, 125),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 6,
+            "med_group": "steroid",
+        },
+        "haloperidol": {
+            "dose_range": (2, 10),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 6,
+            "med_group": "antipsychotic",
+        },
+        "lorazepam": {
+            "dose_range": (0.5, 2),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 6,
+            "med_group": "anxiolytic",
+        },
+        "rocuronium": {
+            "dose_range": (50, 100),
+            "unit": "mg",
+            "route": "iv",
+            "frequency_hours": 1,
+            "med_group": "paralytics",
         },
     }
+
+    # MAR action categories for intermittent per CLIF 2.1.0 schema
+    # mar_action_category: given, bolus, not_given, other
+    INTERMITTENT_MAR_CATEGORIES = ["given", "bolus", "not_given", "other"]
+    INTERMITTENT_MAR_WEIGHTS = [0.85, 0.05, 0.07, 0.03]
 
     def generate(
         self,
@@ -557,8 +639,8 @@ class MedicationIntermittentGenerator(BaseGenerator):
 
         current_time = admit_time
         while current_time < end_time:
-            # Determine MAR action
-            action = self._sample_mar_action()
+            # Determine MAR action per CLIF 2.1.0 schema
+            mar_action_category, mar_action_group = self._sample_mar_action_intermittent()
 
             records.append(
                 {
@@ -567,10 +649,12 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     "admin_dttm": current_time,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": params["med_group"],
                     "med_dose": round(dose, 0),
                     "med_dose_unit": params["unit"],
                     "med_route_category": params["route"],
-                    "mar_action_category": action,
+                    "mar_action_category": mar_action_category,
+                    "mar_action_group": mar_action_group,
                 }
             )
 
@@ -580,10 +664,19 @@ class MedicationIntermittentGenerator(BaseGenerator):
 
         return records
 
-    def _sample_mar_action(self) -> str:
-        """Sample MAR action with realistic distribution."""
-        # Most doses given, small percentage held/refused
-        return self.rng.choice(
-            ["Given", "Held", "Refused", "Not Given"],
-            p=[0.92, 0.04, 0.02, 0.02],
-        )
+    def _sample_mar_action_intermittent(self) -> tuple[str, str]:
+        """Sample MAR action with realistic distribution per CLIF 2.1.0 schema."""
+        # mar_action_category: given, bolus, not_given, other
+        weights = np.array(self.INTERMITTENT_MAR_WEIGHTS, dtype=float)
+        weights /= weights.sum()
+        mar_action_category = self.rng.choice(self.INTERMITTENT_MAR_CATEGORIES, p=weights)
+        
+        # Map to mar_action_group
+        if mar_action_category in ["given", "bolus"]:
+            mar_action_group = "administered"
+        elif mar_action_category == "not_given":
+            mar_action_group = "not_administered"
+        else:
+            mar_action_group = "other"
+            
+        return mar_action_category, mar_action_group

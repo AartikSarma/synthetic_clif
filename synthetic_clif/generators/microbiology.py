@@ -194,17 +194,55 @@ class MicrobiologyCultureGenerator(BaseGenerator):
             collect_time = order_time + timedelta(minutes=collect_delay)
             result_time = collect_time + timedelta(hours=result_delay)
 
+            # Map fluid to CLIF 2.1.0 schema values
+            fluid_category_map = {
+                "Blood": "blood_buffy",
+                "Urine": "genito_urinary_tract",
+                "Respiratory": "respiratory_tract",
+                "Wound": "woundsite",
+            }
+            fluid_category = fluid_category_map.get(fluid, "other_unspecified")
+
+            # Map organism to CLIF 2.1.0 schema values (lowercase with underscores)
+            organism_category_map = {
+                "Staphylococcus aureus": "staphylococcus_aureus",
+                "MRSA": "staphylococcus_aureus",  # MRSA is S. aureus
+                "Escherichia coli": "escherichia_coli",
+                "Klebsiella pneumoniae": "klebsiella_pneumoniae",
+                "Pseudomonas aeruginosa": "pseudomonas_aeruginosa",
+                "Enterococcus faecalis": "enterococcus_faecalis",
+                "Enterococcus faecium": "enterococcus_faecium",
+                "Candida albicans": "candida_albicans",
+                "Candida glabrata": "candida_glabrata",
+                "Acinetobacter baumannii": "acinetobacter_baumannii",
+                "Streptococcus pneumoniae": "streptococcus_pneumoniae",
+                "Enterobacter cloacae": "enterobacter_cloacae",
+                "Proteus mirabilis": "proteus_mirabilis",
+                "No Growth": "no_growth",
+            }
+            organism_cat = organism_category_map.get(organism, "bacteria_other") if organism != "No Growth" else "no_growth"
+
+            # Map organism_group to CLIF 2.1.0 schema values
+            organism_group_map = {
+                "Gram Positive": "staphylococcus_coag_pos",
+                "Gram Negative": "escherichia",
+                "Fungal": "candida_nos",
+                "Other": "other_organism",
+            }
+            org_group = organism_group_map.get(organism_group, "other_organism") if organism_group else "no_growth"
+
             records.append(
                 {
+                    "patient_id": hospitalization_id[:8],  # Extract patient prefix from hosp_id
                     "hospitalization_id": hospitalization_id,
-                    "culture_id": culture_id,
+                    "organism_id": organism_id if organism_id else str(uuid.uuid4())[:8],
                     "order_dttm": order_time,
                     "collect_dttm": collect_time,
                     "result_dttm": result_time,
-                    "fluid_category": fluid,
-                    "organism_id": organism_id,
-                    "organism_category": organism if organism != "No Growth" else None,
-                    "organism_group": organism_group,
+                    "fluid_category": fluid_category,
+                    "method_category": "culture",  # Required per CLIF 2.1.0
+                    "organism_category": organism_cat,
+                    "organism_group": org_group,
                 }
             )
 
@@ -319,13 +357,37 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
                     else:
                         mic_value = f">={self.rng.choice([16, 32, 64])}"
 
+                # Map antibiotic to CLIF 2.1.0 schema antimicrobial_category values
+                antimicrobial_map = {
+                    "Oxacillin": "oxacillin",
+                    "Vancomycin": "vancomycin",
+                    "Daptomycin": "daptomycin",
+                    "Linezolid": "linezolid",
+                    "Ampicillin": "ampicillin",
+                    "Ceftriaxone": "ceftriaxone",
+                    "Ciprofloxacin": "ciprofloxacin",
+                    "Meropenem": "meropenem",
+                    "Piperacillin-Tazobactam": "piperacillin_tazobactam",
+                    "Cefepime": "cefepime",
+                    "Gentamicin": "gentamicin",
+                    "Levofloxacin": "levofloxacin",
+                }
+                antimicrobial_category = antimicrobial_map.get(abx, abx.lower().replace("-", "_"))
+
+                # Map susceptibility to CLIF 2.1.0 schema values
+                # susceptibility_category: susceptible, non_susceptible, intermediate, NA
+                susceptibility_map = {
+                    "Susceptible": "susceptible",
+                    "Intermediate": "intermediate",
+                    "Resistant": "non_susceptible",
+                }
+                susceptibility_cat = susceptibility_map.get(susceptibility, "NA")
+
                 records.append(
                     {
                         "organism_id": organism_id,
-                        "antibiotic_name": abx,
-                        "antibiotic_category": abx,
-                        "susceptibility_category": susceptibility,
-                        "mic_value": mic_value,
+                        "antimicrobial_category": antimicrobial_category,
+                        "susceptibility_category": susceptibility_cat,
                     }
                 )
 

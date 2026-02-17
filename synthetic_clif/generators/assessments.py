@@ -216,14 +216,16 @@ class PatientAssessmentsGenerator(BaseGenerator):
 
             gcs_total = gcs_eye + gcs_verbal + gcs_motor
 
-            # Add component scores
+            # Add component scores per CLIF 2.1.0 schema
+            # Schema requires: numerical_value, categorical_value, text_value
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "gcs_total",
-                    "assessment_value": float(gcs_total),
-                    "assessment_value_text": None,
+                    "numerical_value": float(gcs_total),
+                    "categorical_value": str(gcs_total),
+                    "text_value": "",
                 }
             )
             records.append(
@@ -231,8 +233,9 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "gcs_eye",
-                    "assessment_value": float(gcs_eye),
-                    "assessment_value_text": None,
+                    "numerical_value": float(gcs_eye),
+                    "categorical_value": str(gcs_eye),
+                    "text_value": "",
                 }
             )
             records.append(
@@ -240,8 +243,9 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "gcs_verbal",
-                    "assessment_value": float(gcs_verbal),
-                    "assessment_value_text": None,
+                    "numerical_value": float(gcs_verbal),
+                    "categorical_value": str(gcs_verbal),
+                    "text_value": "",
                 }
             )
             records.append(
@@ -249,8 +253,9 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "gcs_motor",
-                    "assessment_value": float(gcs_motor),
-                    "assessment_value_text": None,
+                    "numerical_value": float(gcs_motor),
+                    "categorical_value": str(gcs_motor),
+                    "text_value": "",
                 }
             )
 
@@ -286,9 +291,10 @@ class PatientAssessmentsGenerator(BaseGenerator):
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
-                    "assessment_category": "rass",
-                    "assessment_value": float(rass),
-                    "assessment_value_text": None,
+                    "assessment_category": "RASS",
+                    "numerical_value": float(rass),
+                    "categorical_value": str(rass),
+                    "text_value": "",
                 }
             )
 
@@ -331,9 +337,10 @@ class PatientAssessmentsGenerator(BaseGenerator):
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
-                    "assessment_category": "cam_icu",
-                    "assessment_value": result_value,
-                    "assessment_value_text": result_text,
+                    "assessment_category": "cam_total",
+                    "numerical_value": result_value,
+                    "categorical_value": result_text,
+                    "text_value": result_text,
                 }
             )
 
@@ -372,9 +379,10 @@ class PatientAssessmentsGenerator(BaseGenerator):
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
-                    "assessment_category": "pain_score",
-                    "assessment_value": float(pain),
-                    "assessment_value_text": None,
+                    "assessment_category": "NRS",  # Numeric Rating Scale per CLIF 2.1.0
+                    "numerical_value": float(pain),
+                    "categorical_value": str(pain),
+                    "text_value": "",
                 }
             )
 
@@ -405,9 +413,10 @@ class PatientAssessmentsGenerator(BaseGenerator):
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
-                    "assessment_category": "braden_score",
-                    "assessment_value": float(braden),
-                    "assessment_value_text": None,
+                    "assessment_category": "braden_total",
+                    "numerical_value": float(braden),
+                    "categorical_value": str(braden),
+                    "text_value": "",
                 }
             )
 
@@ -417,9 +426,10 @@ class PatientAssessmentsGenerator(BaseGenerator):
                 {
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
-                    "assessment_category": "morse_fall_risk",
-                    "assessment_value": float(morse),
-                    "assessment_value_text": None,
+                    "assessment_category": "Morse Fall Scale",
+                    "numerical_value": float(morse),
+                    "categorical_value": str(morse),
+                    "text_value": "",
                 }
             )
 

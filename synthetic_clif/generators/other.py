@@ -54,7 +54,7 @@ class CodeStatusGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
+            df["start_dttm"] = pd.to_datetime(df["start_dttm"], utc=True)
 
         return df
 
@@ -83,11 +83,21 @@ class CodeStatusGenerator(BaseGenerator):
                 p=[0.85, 0.08, 0.05, 0.02],
             )
 
+        # Map code status to CLIF 2.1.0 schema values
+        # code_status_category: DNR, DNAR, UDNR, DNR/DNI, DNAR/DNI, AND, Full, Presume Full, Other
+        status_map = {
+            "Full Code": "Full",
+            "DNR": "DNR",
+            "DNR/DNI": "DNR/DNI",
+            "Unknown": "Presume Full",
+            "Comfort Care": "Other",
+        }
+        
         records.append(
             {
-                "hospitalization_id": hospitalization_id,
-                "recorded_dttm": admit_time,
-                "code_status_category": initial_status,
+                "patient_id": hospitalization_id[:8],  # Extract patient prefix
+                "start_dttm": admit_time,
+                "code_status_category": status_map.get(initial_status, "Other"),
             }
         )
 
@@ -104,8 +114,8 @@ class CodeStatusGenerator(BaseGenerator):
             if self.rng.random() < 0.5:
                 records.append(
                     {
-                        "hospitalization_id": hospitalization_id,
-                        "recorded_dttm": transition_time,
+                        "patient_id": hospitalization_id[:8],
+                        "start_dttm": transition_time,
                         "code_status_category": "DNR/DNI",
                     }
                 )
@@ -113,9 +123,9 @@ class CodeStatusGenerator(BaseGenerator):
 
             records.append(
                 {
-                    "hospitalization_id": hospitalization_id,
-                    "recorded_dttm": transition_time,
-                    "code_status_category": "Comfort Care",
+                    "patient_id": hospitalization_id[:8],
+                    "start_dttm": transition_time,
+                    "code_status_category": "AND",  # Allow Natural Death per CLIF 2.1.0
                 }
             )
 
@@ -125,10 +135,10 @@ class CodeStatusGenerator(BaseGenerator):
                 upper_bound = max(25, los_hours * 0.5)
                 records.append(
                     {
-                        "hospitalization_id": hospitalization_id,
-                        "recorded_dttm": admit_time
+                        "patient_id": hospitalization_id[:8],
+                        "start_dttm": admit_time
                         + timedelta(hours=self.rng.uniform(24, upper_bound)),
-                        "code_status_category": "Full Code",
+                        "code_status_category": "Full",
                     }
                 )
 
@@ -216,6 +226,7 @@ class PositionGenerator(BaseGenerator):
         # Determine if patient receives prone positioning (~10% of ventilated)
         has_prone = is_ventilated and self.rng.random() < 0.10
 
+        # CLIF 2.1.0 schema position_category: prone, not_prone
         if has_prone:
             # Generate prone/supine cycles
             timestamps = generate_irregular_timestamps(
@@ -228,10 +239,8 @@ class PositionGenerator(BaseGenerator):
 
             is_prone = False
             for ts in timestamps:
-                if is_prone:
-                    position = "Supine"
-                else:
-                    position = "Prone"
+                # Per CLIF 2.1.0 schema, only prone or not_prone
+                position = "prone" if not is_prone else "not_prone"
                 is_prone = not is_prone
 
                 records.append(
@@ -242,7 +251,7 @@ class PositionGenerator(BaseGenerator):
                     }
                 )
         else:
-            # Regular position changes (q2h turns)
+            # Regular position changes - all are not_prone per CLIF 2.1.0
             timestamps = generate_irregular_timestamps(
                 admit_time,
                 discharge_time,
@@ -251,15 +260,12 @@ class PositionGenerator(BaseGenerator):
                 rng=self.rng,
             )
 
-            positions = ["Supine", "Left Lateral", "Right Lateral", "Semi-Fowler"]
-
             for ts in timestamps:
-                position = self.rng.choice(positions)
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
                         "recorded_dttm": ts,
-                        "position_category": position,
+                        "position_category": "not_prone",
                     }
                 )
 
@@ -354,26 +360,33 @@ class CRRTTherapyGenerator(BaseGenerator):
             rng=self.rng,
         )
 
-        # CRRT mode
-        mode = self.rng.choice(["CVVH", "CVVHD", "CVVHDF"], p=[0.3, 0.2, 0.5])
+        # CRRT mode per CLIF 2.1.0 schema (lowercase): scuf, cvvh, cvvhd, cvvhdf, avvh
+        mode = self.rng.choice(["cvvh", "cvvhd", "cvvhdf"], p=[0.3, 0.2, 0.5])
 
         for ts in timestamps:
+            # Per CLIF 2.1.0 schema, required columns:
+            # blood_flow_rate, pre_filter_replacement_fluid_rate, 
+            # post_filter_replacement_fluid_rate, dialysate_flow_rate, ultrafiltration_out
             record = {
                 "hospitalization_id": hospitalization_id,
                 "recorded_dttm": ts,
                 "crrt_mode_category": mode,
                 "blood_flow_rate": round(self.rng.uniform(150, 250), 0),
+                "pre_filter_replacement_fluid_rate": None,
+                "post_filter_replacement_fluid_rate": None,
                 "dialysate_flow_rate": None,
-                "replacement_flow_rate": None,
-                "ultrafiltration_rate": round(self.rng.uniform(50, 200), 0),
-                "effluent_flow_rate": round(self.rng.uniform(1500, 3000), 0),
+                "ultrafiltration_out": round(self.rng.uniform(50, 200), 0),
             }
 
-            if mode in ["CVVHD", "CVVHDF"]:
+            if mode in ["cvvhd", "cvvhdf"]:
                 record["dialysate_flow_rate"] = round(self.rng.uniform(1000, 2000), 0)
 
-            if mode in ["CVVH", "CVVHDF"]:
-                record["replacement_flow_rate"] = round(self.rng.uniform(1000, 2500), 0)
+            if mode in ["cvvh", "cvvhdf"]:
+                # Split replacement into pre and post filter
+                total_replacement = self.rng.uniform(1000, 2500)
+                pre_filter_ratio = self.rng.uniform(0.3, 0.7)
+                record["pre_filter_replacement_fluid_rate"] = round(total_replacement * pre_filter_ratio, 0)
+                record["post_filter_replacement_fluid_rate"] = round(total_replacement * (1 - pre_filter_ratio), 0)
 
             records.append(record)
 

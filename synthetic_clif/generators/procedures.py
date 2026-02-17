@@ -116,7 +116,7 @@ class PatientProceduresGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["procedure_dttm"] = pd.to_datetime(df["procedure_dttm"], utc=True)
+            df["procedure_billed_dttm"] = pd.to_datetime(df["procedure_billed_dttm"], utc=True)
 
         return df
 
@@ -146,22 +146,22 @@ class PatientProceduresGenerator(BaseGenerator):
 
                 proc_time = admit_time + timedelta(hours=hours_from_admit)
 
-                # Select code type
+                # Select code type per CLIF 2.1.0 schema
+                # procedure_code_format: CPT, ICD10PCS, HCPCS
                 use_icd10 = self.rng.random() < 0.7
                 if use_icd10:
                     code = self.rng.choice(proc_data["icd10_pcs"])
-                    code_type = "ICD-10-PCS"
+                    code_format = "ICD10PCS"
                 else:
                     code = self.rng.choice(proc_data["cpt"])
-                    code_type = "CPT"
+                    code_format = "CPT"
 
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
-                        "procedure_dttm": proc_time,
+                        "procedure_billed_dttm": proc_time,
                         "procedure_code": code,
-                        "procedure_code_type": code_type,
-                        "procedure_category": proc_name,
+                        "procedure_code_format": code_format,
                     }
                 )
 
@@ -331,25 +331,24 @@ class HospitalDiagnosisGenerator(BaseGenerator):
                 else:
                     dx_type = "Secondary"
 
-                # POA status
-                poa = self.rng.choice(
-                    ["Yes", "No", "Unknown"],
-                    p=[0.70, 0.20, 0.10],
-                )
+                # POA status per CLIF 2.1.0 schema (0 or 1)
+                poa_present = 1 if self.rng.random() < 0.70 else 0
+
+                # diagnosis_primary per CLIF 2.1.0 schema (0 or 1)
+                diagnosis_primary = 1 if dx_type == "Principal" else 0
 
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
                         "diagnosis_code": code,
-                        "diagnosis_code_type": "ICD-10-CM",
-                        "diagnosis_name": dx_name,
-                        "diagnosis_type": dx_type,
-                        "poa_category": poa,
+                        "diagnosis_code_format": "ICD10CM",
+                        "diagnosis_primary": diagnosis_primary,
+                        "poa_present": poa_present,
                     }
                 )
 
         # Ensure at least one principal diagnosis
         if records and not has_principal:
-            records[0]["diagnosis_type"] = "Principal"
+            records[0]["diagnosis_primary"] = 1
 
         return records
