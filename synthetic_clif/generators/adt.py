@@ -15,8 +15,9 @@ class ADTGenerator(BaseGenerator):
 
     Creates adt table with location transfers during hospitalization:
     - hospitalization_id (foreign key)
+    - hospital_id, hospital_type (required for CLIF 2.1.0)
     - in_dttm, out_dttm (contiguous and within hospitalization bounds)
-    - location_category (mCIDE category)
+    - location_name, location_category, location_type (required)
 
     Typical flow: ED → ICU → Stepdown → Ward → Discharge
     """
@@ -32,6 +33,25 @@ class ADTGenerator(BaseGenerator):
 
     FLOW_WEIGHTS = [0.35, 0.25, 0.15, 0.15, 0.10]
 
+    # Hospital types per CLIF 2.1.0 schema
+    HOSPITAL_TYPES = ["academic", "community", "LTACH"]
+    HOSPITAL_TYPE_WEIGHTS = [0.6, 0.35, 0.05]
+
+    # Location types per CLIF 2.1.0 schema (for ICU locations)
+    LOCATION_TYPES = [
+        "general_icu",
+        "cardiac_icu",
+        "cardiothoracic_surgical_icu",
+        "mixed_cardiothoracic_icu",
+        "surgical_icu",
+        "burn_icu",
+        "neuro_icu",
+        "neurosurgical_icu",
+        "mixed_neuro_icu",
+        "medical_icu",
+    ]
+    LOCATION_TYPE_WEIGHTS = [0.25, 0.15, 0.05, 0.05, 0.15, 0.02, 0.08, 0.05, 0.05, 0.15]
+
     def generate(
         self,
         hospitalizations_df: pd.DataFrame,
@@ -45,6 +65,16 @@ class ADTGenerator(BaseGenerator):
             DataFrame with ADT table columns
         """
         records = []
+
+        # Generate a set of hospital IDs (simulate multi-hospital system)
+        n_hospitals = max(3, len(hospitalizations_df) // 100)
+        hospital_ids = [f"HOSP-{i:03d}" for i in range(1, n_hospitals + 1)]
+        hospital_types = self.rng.choice(
+            self.HOSPITAL_TYPES,
+            size=n_hospitals,
+            p=self.HOSPITAL_TYPE_WEIGHTS,
+        )
+        hospital_map = dict(zip(hospital_ids, hospital_types))
 
         for _, hosp in hospitalizations_df.iterrows():
             hosp_id = hosp["hospitalization_id"]
@@ -64,9 +94,13 @@ class ADTGenerator(BaseGenerator):
             if discharge_time.tzinfo is None:
                 discharge_time = discharge_time.replace(tzinfo=timezone.utc)
 
+            # Assign hospital for this hospitalization
+            hospital_id = self.rng.choice(hospital_ids)
+            hospital_type = hospital_map[hospital_id]
+
             # Generate location sequence
             adt_events = self._generate_location_sequence(
-                hosp_id, admit_time, discharge_time
+                hosp_id, admit_time, discharge_time, hospital_id, hospital_type
             )
             records.extend(adt_events)
 
@@ -83,17 +117,23 @@ class ADTGenerator(BaseGenerator):
         hospitalization_id: str,
         admit_time: datetime,
         discharge_time: datetime,
+        hospital_id: str,
+        hospital_type: str,
     ) -> list[dict]:
         """Generate sequence of location transfers."""
         total_hours = (discharge_time - admit_time).total_seconds() / 3600
 
         if total_hours <= 0:
+            location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
             return [
                 {
                     "hospitalization_id": hospitalization_id,
+                    "hospital_id": hospital_id,
+                    "hospital_type": hospital_type,
                     "in_dttm": admit_time,
                     "out_dttm": discharge_time,
                     "location_category": "icu",
+                    "location_type": location_type,
                 }
             ]
 
@@ -134,12 +174,22 @@ class ADTGenerator(BaseGenerator):
                 end_time += timedelta(hours=jitter_hours)
                 end_time = min(end_time, discharge_time)
 
+            # Determine location_type (only meaningful for ICU)
+            if location == "icu":
+                location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+            else:
+                # For non-ICU, use general_icu as placeholder (schema requires a value)
+                location_type = "general_icu"
+
             events.append(
                 {
                     "hospitalization_id": hospitalization_id,
+                    "hospital_id": hospital_id,
+                    "hospital_type": hospital_type,
                     "in_dttm": current_time,
                     "out_dttm": end_time,
                     "location_category": location,
+                    "location_type": location_type,
                 }
             )
 
