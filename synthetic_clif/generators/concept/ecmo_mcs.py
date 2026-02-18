@@ -73,6 +73,7 @@ class ECMOMCSGenerator(BaseGenerator):
         los_hours = (discharge_time - admit_time).total_seconds() / 3600
 
         # Device categories and their MCS groups per CLIFPy schema
+        # Increased ECMO weights to ensure better coverage of sweep/fdO2 fields
         device_options = [
             ("VA_ECMO", "ECMO"),
             ("VV_ECMO", "ECMO"),
@@ -81,7 +82,7 @@ class ECMOMCSGenerator(BaseGenerator):
             ("Impella_5.5", "temporary_LVAD"),
             ("CentriMag_LV", "temporary_LVAD"),
         ]
-        weights = [0.25, 0.25, 0.25, 0.12, 0.08, 0.05]
+        weights = [0.35, 0.35, 0.10, 0.08, 0.07, 0.05]
         idx = self.rng.choice(len(device_options), p=weights)
         device, mcs_group = device_options[idx]
 

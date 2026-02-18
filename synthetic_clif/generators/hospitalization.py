@@ -136,6 +136,10 @@ class HospitalizationGenerator(BaseGenerator):
         df = self.add_missingness(df, "admission_type_category", 0.02)
         df = self.add_missingness(df, "discharge_name", 0.02)
 
+        # Cast age_at_admission to nullable Int64 to preserve integer type with NaN
+        if "age_at_admission" in df.columns:
+            df["age_at_admission"] = df["age_at_admission"].astype("Int64")
+
         return df
 
     def _distribute_hospitalizations(
