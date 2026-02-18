@@ -36,6 +36,7 @@ jobs:
               n_hospitalizations=10000,
               seed=42,
               include_concept_tables=True,
+              workers=10,
           )
           dataset.generate()
           dataset.to_parquet(Path('synth_clif_10k'))
