@@ -4,15 +4,15 @@ Generate synthetic [CLIF (Common Longitudinal ICU Format)](https://clif-consorti
 
 ## Quick Start: Download the Pre-generated Dataset
 
-A pre-generated dataset with **10,000 hospitalizations** (~16 million rows across 28 tables) is available as a GitHub Release asset.
+A pre-generated dataset with **10,000 hospitalizations** (~33 million rows across 28 tables) is available as a GitHub Release asset.
 
 ```bash
 # Download and extract (requires GitHub CLI)
-gh release download v0.3.2 -R AartikSarma/synthetic_clif -p "synth_clif_10k.tar.gz"
+gh release download v0.4.0 -R AartikSarma/synthetic_clif -p "synth_clif_10k.tar.gz"
 mkdir -p synth_clif_10k && tar -xzf synth_clif_10k.tar.gz -C synth_clif_10k
 
 # Or download directly
-curl -L https://github.com/AartikSarma/synthetic_clif/releases/download/v0.3.2/synth_clif_10k.tar.gz | tar -xz -C synth_clif_10k
+curl -L https://github.com/AartikSarma/synthetic_clif/releases/download/v0.4.0/synth_clif_10k.tar.gz | tar -xz -C synth_clif_10k
 ```
 
 Then load in Python:
@@ -52,8 +52,8 @@ pip install -e .
 # Small test dataset
 python -m synthetic_clif --patients 10 --hospitalizations 12 --output data/test/
 
-# Full-size dataset
-python -m synthetic_clif --patients 8000 --hospitalizations 10000 --output data/full/
+# Full-size dataset (parallel generation with 4 workers)
+python -m synthetic_clif --patients 8000 --hospitalizations 10000 --output data/full/ -w 4
 ```
 
 ### Command Line Options
@@ -67,6 +67,7 @@ Options:
   --output PATH           Output directory for parquet files (default: data/)
   --seed INT              Random seed for reproducibility (default: 42)
   --format [parquet|csv]  Output format (default: parquet)
+  --workers INT, -w INT   Number of parallel workers (default: 1)
   --no-concept-tables     Skip generating concept tables (draft status)
 ```
 
@@ -81,6 +82,7 @@ dataset = SyntheticCLIFDataset(
     n_hospitalizations=120,
     seed=42,
     include_concept_tables=True,
+    workers=4,  # parallel generation (default: 1)
 )
 
 tables = dataset.generate()
@@ -142,7 +144,8 @@ The synthetic data includes realistic artifacts found in real EHR data:
 - **Irregular measurement frequency** - ICU vitals ~hourly, ward vitals ~q4h
 - **Missingness patterns** - MCAR, MAR, and MNAR based on clinical documentation practices
 - **Outliers** - Physiologically plausible extremes (fever spikes, hypotensive episodes)
-- **Variable length of stay** - Log-normal distribution (median ~5 days, range 1-60+)
+- **Variable length of stay** - Log-normal distribution (median ~6.4 days, range 1-60+)
+- **Consortium-calibrated distributions** - Demographics, ventilator settings, and clinical parameters match the 13-institution CLIF consortium aggregate
 - **Specific ICU locations** - ADT uses MICU, SICU, CCU, NICU (not generic "ICU")
 - **Validated against CLIFPy** - Schema, data types, categorical values, and units verified
 
