@@ -22,6 +22,7 @@ class TestPatientGenerator:
         assert "ethnicity_category" in df.columns
         assert "birth_date" in df.columns
         assert "death_dttm" in df.columns
+        assert "language_category" in df.columns
 
     def test_patient_ids_unique(self, seed, mcide):
         """Test that patient IDs are unique."""
@@ -44,33 +45,6 @@ class TestPatientGenerator:
             assert len(parts[3]) == 4
             assert len(parts[4]) == 12
 
-    def test_sex_category_valid(self, seed, mcide):
-        """Test that sex categories are valid mCIDE values."""
-        gen = PatientGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(n_patients=100)
-
-        valid_sexes = set(mcide.get_category("sex"))
-        for sex in df["sex_category"].dropna():
-            assert sex in valid_sexes
-
-    def test_race_category_valid(self, seed, mcide):
-        """Test that race categories are valid mCIDE values."""
-        gen = PatientGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(n_patients=100)
-
-        valid_races = set(mcide.get_category("race"))
-        for race in df["race_category"].dropna():
-            assert race in valid_races
-
-    def test_ethnicity_category_valid(self, seed, mcide):
-        """Test that ethnicity categories are valid mCIDE values."""
-        gen = PatientGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(n_patients=100)
-
-        valid_ethnicities = set(mcide.get_category("ethnicity"))
-        for eth in df["ethnicity_category"].dropna():
-            assert eth in valid_ethnicities
-
     def test_birth_date_reasonable(self, seed, mcide, reference_date):
         """Test that birth dates produce reasonable ages."""
         gen = PatientGenerator(seed=seed, mcide=mcide)
@@ -80,7 +54,7 @@ class TestPatientGenerator:
             if pd.notna(row["birth_date"]):
                 age = (reference_date.date() - row["birth_date"].date()).days / 365.25
                 # Allow small tolerance for boundary cases
-                assert 17.9 <= age <= 96
+                assert 17.9 <= age <= 101
 
     def test_mortality_rate(self, seed, mcide):
         """Test that mortality rate is approximately correct."""

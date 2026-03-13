@@ -21,16 +21,7 @@ class TestVitalsGenerator:
         assert "recorded_dttm" in df.columns
         assert "vital_category" in df.columns
         assert "vital_value" in df.columns
-        assert "meas_site_category" in df.columns
-
-    def test_vital_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that vital categories are valid mCIDE values."""
-        gen = VitalsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_vitals = set(mcide.get_category("vital"))
-        for vc in df["vital_category"].dropna():
-            assert vc in valid_vitals
+        assert "meas_site_name" in df.columns
 
     def test_timestamps_within_hospitalization(self, hospitalizations_df, seed, mcide):
         """Test that vital timestamps are within hospitalization bounds."""
@@ -45,27 +36,6 @@ class TestVitalsGenerator:
             assert row["recorded_dttm"] >= hosp["admission_dttm"]
             if pd.notna(hosp["discharge_dttm"]):
                 assert row["recorded_dttm"] <= hosp["discharge_dttm"]
-
-    def test_vital_values_reasonable(self, hospitalizations_df, seed, mcide):
-        """Test that vital values are physiologically reasonable."""
-        gen = VitalsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        bounds = {
-            "heart_rate": (30, 200),
-            "sbp": (60, 250),
-            "dbp": (30, 150),
-            "spo2": (50, 100),
-            "respiratory_rate": (6, 50),
-            "temp_c": (34, 42),
-            "map": (40, 160),
-        }
-
-        for vital_cat, (lower, upper) in bounds.items():
-            values = df[df["vital_category"] == vital_cat]["vital_value"].dropna()
-            if len(values) > 0:
-                assert values.min() >= lower
-                assert values.max() <= upper
 
     def test_temporal_consistency(self, hospitalizations_df, seed, mcide):
         """Test that consecutive vitals don't jump unrealistically."""

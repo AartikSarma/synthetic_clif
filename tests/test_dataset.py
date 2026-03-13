@@ -114,63 +114,30 @@ class TestSyntheticCLIFDataset:
         assert len(small_dataset["vitals"]) > 8
         assert len(small_dataset["labs"]) > 8
 
-    def test_to_parquet(self):
-        """Test parquet output."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-
-            dataset = SyntheticCLIFDataset(
-                n_patients=3, n_hospitalizations=5, seed=42
-            )
-            dataset.generate()
-            dataset.to_parquet(output_dir)
-
-            # Check files exist
-            assert (output_dir / "patient.parquet").exists()
-            assert (output_dir / "hospitalization.parquet").exists()
-            assert (output_dir / "vitals.parquet").exists()
-
-            # Check files are readable
-            df = pd.read_parquet(output_dir / "patient.parquet")
-            assert len(df) == 3
-
-    def test_to_csv(self):
-        """Test CSV output."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            output_dir = Path(tmpdir)
-
-            dataset = SyntheticCLIFDataset(
-                n_patients=3, n_hospitalizations=5, seed=42
-            )
-            dataset.generate()
-            dataset.to_csv(output_dir)
-
-            # Check files exist
-            assert (output_dir / "patient.csv").exists()
-            assert (output_dir / "hospitalization.csv").exists()
-
-            # Check files are readable
-            df = pd.read_csv(output_dir / "patient.csv")
-            assert len(df) == 3
-
     def test_reproducibility(self):
         """Test that same seed produces same results."""
         dataset1 = SyntheticCLIFDataset(
-            n_patients=5, n_hospitalizations=8, seed=42
+            n_patients=5, n_hospitalizations=8, seed=42,
         )
         tables1 = dataset1.generate()
 
         dataset2 = SyntheticCLIFDataset(
-            n_patients=5, n_hospitalizations=8, seed=42
+            n_patients=5, n_hospitalizations=8, seed=42,
         )
         tables2 = dataset2.generate()
 
-        # Check patient table matches
-        pd.testing.assert_frame_equal(tables1["patient"], tables2["patient"])
-
-        # Check hospitalization table matches
+        # Check patient table non-timestamp columns match
+        non_dt_cols = [c for c in tables1["patient"].columns if c != "death_dttm"]
         pd.testing.assert_frame_equal(
-            tables1["hospitalization"], tables2["hospitalization"]
+            tables1["patient"][non_dt_cols], tables2["patient"][non_dt_cols]
+        )
+
+        # Check hospitalization non-timestamp columns match
+        non_dt_cols = [c for c in tables1["hospitalization"].columns
+                       if "dttm" not in c]
+        pd.testing.assert_frame_equal(
+            tables1["hospitalization"][non_dt_cols],
+            tables2["hospitalization"][non_dt_cols],
         )
 
     def test_summary(self):

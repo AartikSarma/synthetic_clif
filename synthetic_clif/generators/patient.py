@@ -16,10 +16,31 @@ class PatientGenerator(BaseGenerator):
 
     Creates patient table with:
     - patient_id (UUID format)
-    - sex_category, race_category, ethnicity_category (mCIDE categories)
+    - sex_category, race_category, ethnicity_category, language_category (mCIDE categories)
     - birth_date (realistic age distribution 18-95)
     - death_dttm (~15% mortality, correlated with hospitalizations)
     """
+
+    # Language categories per CLIF 2.1.0 schema
+    LANGUAGE_CATEGORIES = [
+        "English",
+        "Spanish",
+        "French",
+        "Haitian Creole",
+        "Italian",
+        "Portuguese",
+        "German",
+        "Chinese",
+        "Vietnamese",
+        "Korean",
+        "Tagalog",
+        "Arabic",
+        "Russian",
+        "Sign Language",
+        "Unknown or NA",
+    ]
+    # Weights roughly based on US demographics
+    LANGUAGE_WEIGHTS = [0.78, 0.12, 0.01, 0.005, 0.005, 0.01, 0.005, 0.02, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, 0.02]
 
     def __init__(
         self,
@@ -33,7 +54,7 @@ class PatientGenerator(BaseGenerator):
     def generate(
         self,
         n_patients: int,
-        mortality_rate: float = 0.15,
+        mortality_rate: float = 0.258,
         reference_date: Optional[datetime] = None,
     ) -> pd.DataFrame:
         """Generate patient demographics.
@@ -53,14 +74,25 @@ class PatientGenerator(BaseGenerator):
         patient_ids = self.generate_uuids(n_patients)
 
         # Generate demographics
-        sex_weights = [0.48, 0.48, 0.02, 0.02]  # Female, Male, Other, Unknown
+        # Consortium aggregate: Male 54.5%, Female 45.5%, Other <0.1%, Unknown <0.1%
+        sex_weights = [0.455, 0.545, 0.0001, 0.0001]  # Female, Male, Other, Unknown
         sex_categories = self.sample_category("sex", n_patients, sex_weights)
 
-        race_weights = [0.01, 0.06, 0.13, 0.01, 0.70, 0.05, 0.04]
+        # Consortium aggregate: AI/AN 0.5%, Asian 4.5%, Black 19.5%, NHPI 0.3%,
+        # White 63.3%, Other 5.2%, Unknown 6.6%
+        race_weights = [0.005, 0.045, 0.195, 0.003, 0.633, 0.052, 0.066]
         race_categories = self.sample_category("race", n_patients, race_weights)
 
-        ethnicity_weights = [0.18, 0.78, 0.04]
+        # Consortium aggregate: Hispanic 5.8%, Non-Hispanic 86.7%, Unknown 7.4%
+        ethnicity_weights = [0.058, 0.867, 0.074]
         ethnicity_categories = self.sample_category("ethnicity", n_patients, ethnicity_weights)
+
+        # Generate language categories per CLIF 2.1.0 schema
+        language_weights = np.array(self.LANGUAGE_WEIGHTS[:len(self.LANGUAGE_CATEGORIES)], dtype=float)
+        language_weights /= language_weights.sum()
+        language_categories = self.rng.choice(
+            self.LANGUAGE_CATEGORIES, size=n_patients, p=language_weights
+        ).tolist()
 
         # Generate birth dates (age distribution typical for ICU)
         # Bimodal: younger trauma/surgical, older medical
@@ -79,15 +111,16 @@ class PatientGenerator(BaseGenerator):
             days_until_death = int(self.rng.integers(0, 90))
             death_dttms[idx] = reference_date - timedelta(days=days_until_death)
 
-        # Create DataFrame
+        # Create DataFrame with columns ordered per CLIF 2.1.0 schema
         df = pd.DataFrame(
             {
                 "patient_id": patient_ids,
-                "sex_category": sex_categories,
-                "race_category": race_categories,
-                "ethnicity_category": ethnicity_categories,
                 "birth_date": birth_dates,
                 "death_dttm": death_dttms,
+                "race_category": race_categories,
+                "ethnicity_category": ethnicity_categories,
+                "sex_category": sex_categories,
+                "language_category": language_categories,
             }
         )
 
@@ -98,27 +131,29 @@ class PatientGenerator(BaseGenerator):
         # Add some missingness to demographics (rare)
         df = self.add_missingness(df, "race_category", 0.03)
         df = self.add_missingness(df, "ethnicity_category", 0.02)
+        df = self.add_missingness(df, "language_category", 0.05)
 
         return df
 
     def _generate_age_distribution(self, n: int) -> np.ndarray:
         """Generate age distribution typical for ICU population.
 
+        Consortium aggregate: median 66 [Q1=47, Q3=79].
         Uses mixture of distributions:
-        - 20% younger (trauma, surgical): mean 35, std 12
-        - 80% older (medical): mean 68, std 15
+        - 15% younger (trauma, surgical): mean 38, std 10
+        - 85% older (medical): mean 72, std 13
 
-        Returns ages in years, bounded to [18, 95].
+        Returns ages in years, bounded to [18, 100].
         """
         ages = np.zeros(n)
 
-        # Young cohort (20%)
-        n_young = int(n * 0.2)
-        ages[:n_young] = self.rng.normal(35, 12, n_young)
+        # Young cohort (15%)
+        n_young = int(n * 0.15)
+        ages[:n_young] = self.rng.normal(38, 10, n_young)
 
-        # Older cohort (80%)
-        ages[n_young:] = self.rng.normal(68, 15, n - n_young)
+        # Older cohort (85%)
+        ages[n_young:] = self.rng.normal(72, 13, n - n_young)
 
         # Shuffle and bound
         self.rng.shuffle(ages)
-        return np.clip(ages, 18, 95)
+        return np.clip(ages, 18, 100)
