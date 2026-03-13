@@ -15,9 +15,9 @@ class ADTGenerator(BaseGenerator):
 
     Creates adt table with location transfers during hospitalization:
     - hospitalization_id (foreign key)
-    - hospital_id, hospital_type
+    - hospital_id, hospital_type (required for CLIF 2.1.0)
     - in_dttm, out_dttm (contiguous and within hospitalization bounds)
-    - location_name, location_category, location_type
+    - location_name, location_category, location_type (required)
 
     Typical flow: ED → ICU → Stepdown → Ward → Discharge
     """
@@ -58,6 +58,25 @@ class ADTGenerator(BaseGenerator):
         "procedural": ["Procedure Suite", "Operating Room"],
         "other": ["Other Unit"],
     }
+
+    # Hospital types per CLIF 2.1.0 schema
+    HOSPITAL_TYPES = ["academic", "community", "LTACH"]
+    HOSPITAL_TYPE_WEIGHTS = [0.6, 0.35, 0.05]
+
+    # Location types per CLIF 2.1.0 schema (for ICU locations)
+    LOCATION_TYPES = [
+        "general_icu",
+        "cardiac_icu",
+        "cardiothoracic_surgical_icu",
+        "mixed_cardiothoracic_icu",
+        "surgical_icu",
+        "burn_icu",
+        "neuro_icu",
+        "neurosurgical_icu",
+        "mixed_neuro_icu",
+        "medical_icu",
+    ]
+    LOCATION_TYPE_WEIGHTS = [0.25, 0.15, 0.05, 0.05, 0.15, 0.02, 0.08, 0.05, 0.05, 0.15]
 
     def generate(
         self,
@@ -131,11 +150,7 @@ class ADTGenerator(BaseGenerator):
         total_hours = (discharge_time - admit_time).total_seconds() / 3600
 
         if total_hours <= 0:
-            icu_cat = self.rng.choice(
-                self.ICU_CATEGORIES, p=self.ICU_CATEGORY_WEIGHTS
-            )
-            loc_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
-            loc_name = loc_type.replace("_", " ").title().replace("Icu", "ICU")
+            location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
             return [
                 {
                     "hospitalization_id": hospitalization_id,
@@ -143,9 +158,8 @@ class ADTGenerator(BaseGenerator):
                     "hospital_type": hospital_type,
                     "in_dttm": admit_time,
                     "out_dttm": discharge_time,
-                    "location_name": loc_name,
-                    "location_category": icu_cat,
-                    "location_type": loc_type,
+                    "location_category": "icu",
+                    "location_type": location_type,
                 }
             ]
 
@@ -190,8 +204,12 @@ class ADTGenerator(BaseGenerator):
                 end_time += timedelta(hours=jitter_hours)
                 end_time = min(end_time, discharge_time)
 
-            # Determine location_type and location_name
-            loc_type, loc_name = self._get_location_details(location)
+            # Determine location_type (only meaningful for ICU)
+            if location == "icu":
+                location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+            else:
+                # For non-ICU, use general_icu as placeholder (schema requires a value)
+                location_type = "general_icu"
 
             events.append(
                 {
@@ -202,7 +220,7 @@ class ADTGenerator(BaseGenerator):
                     "out_dttm": end_time,
                     "location_name": loc_name,
                     "location_category": location,
-                    "location_type": loc_type,
+                    "location_type": location_type,
                 }
             )
 
