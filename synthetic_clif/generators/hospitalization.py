@@ -10,6 +10,10 @@ from synthetic_clif.generators.base import BaseGenerator
 from synthetic_clif.config.mcide import MCIDELoader
 from synthetic_clif.utils.distributions import log_normal_los
 
+# CLIF research projects typically filter for 2018–2024 historical data
+CLIF_DATE_START = datetime(2018, 1, 1, tzinfo=timezone.utc)
+CLIF_DATE_END = datetime(2024, 12, 31, tzinfo=timezone.utc)
+
 
 class HospitalizationGenerator(BaseGenerator):
     """Generate synthetic hospitalizations.
@@ -27,23 +31,24 @@ class HospitalizationGenerator(BaseGenerator):
         patients_df: pd.DataFrame,
         n_hospitalizations: int,
         reference_date: Optional[datetime] = None,
-        median_los_days: float = 5.0,
-        los_sigma: float = 0.8,
+        median_los_days: float = 6.4,
+        los_sigma: float = 1.4,
     ) -> pd.DataFrame:
         """Generate hospitalizations linked to patients.
 
         Args:
             patients_df: Patient table DataFrame
             n_hospitalizations: Total number of hospitalizations to generate
-            reference_date: Reference date for admission times (default: now - 1 year)
+            reference_date: Unused; admissions are drawn uniformly from
+                CLIF_DATE_START–CLIF_DATE_END (2018-01-01 to 2024-12-31)
+                so that synthetic data matches the date range expected by
+                CLIF research projects.
             median_los_days: Median length of stay in days
             los_sigma: Log-normal sigma parameter for LOS distribution
 
         Returns:
             DataFrame with hospitalization table columns
         """
-        if reference_date is None:
-            reference_date = datetime.now(timezone.utc) - timedelta(days=365)
 
         patient_ids = patients_df["patient_id"].tolist()
         birth_dates = patients_df["birth_date"].tolist()
@@ -64,10 +69,8 @@ class HospitalizationGenerator(BaseGenerator):
             birth_date = birth_dates[pt_idx]
             death_dttm = death_dttms[pt_idx]
 
-            # Generate admission times spread over 2 years before reference date
-            admission_times = self._generate_admission_times(
-                n_hosp, reference_date, spread_days=730
-            )
+            # Generate admission times uniformly within the CLIF historical range
+            admission_times = self._generate_admission_times(n_hosp)
 
             # Generate LOS for each hospitalization
             los_days = log_normal_los(
@@ -92,15 +95,17 @@ class HospitalizationGenerator(BaseGenerator):
 
                 if is_terminal:
                     discharge_category = "Expired"
+                    discharge_name = "expired"
                     discharge_time = death_dttm
                 else:
                     discharge_category = self._sample_discharge_category()
+                    discharge_name = self._get_discharge_name(discharge_category)
 
                 # Calculate age at admission
                 if pd.notna(birth_date):
-                    age_at_admission = (
-                        admit_time.date() - birth_date.date()
-                    ).days / 365.25
+                    age_at_admission = int(
+                        (admit_time.date() - birth_date.date()).days / 365.25
+                    )
                 else:
                     age_at_admission = None
 
@@ -115,6 +120,7 @@ class HospitalizationGenerator(BaseGenerator):
                         "discharge_dttm": discharge_time,
                         "age_at_admission": age_at_admission,
                         "admission_type_category": self._sample_admission_type(),
+                        "discharge_name": discharge_name,
                         "discharge_category": discharge_category,
                     }
                 )
@@ -128,6 +134,11 @@ class HospitalizationGenerator(BaseGenerator):
         # Add missingness
         df = self.add_missingness(df, "age_at_admission", 0.01)
         df = self.add_missingness(df, "admission_type_category", 0.02)
+        df = self.add_missingness(df, "discharge_name", 0.02)
+
+        # Cast age_at_admission to nullable Int64 to preserve integer type with NaN
+        if "age_at_admission" in df.columns:
+            df["age_at_admission"] = df["age_at_admission"].astype("Int64")
 
         return df
 
@@ -167,39 +178,99 @@ class HospitalizationGenerator(BaseGenerator):
 
         return counts
 
-    def _generate_admission_times(
-        self,
-        n: int,
-        reference_date: datetime,
-        spread_days: int = 730,
-    ) -> list[datetime]:
-        """Generate admission times spread over a time period."""
-        if reference_date.tzinfo is None:
-            reference_date = reference_date.replace(tzinfo=timezone.utc)
-
+    def _generate_admission_times(self, n: int) -> list[datetime]:
+        """Generate admission times drawn uniformly from CLIF_DATE_START to CLIF_DATE_END."""
+        total_seconds = int(
+            (CLIF_DATE_END - CLIF_DATE_START).total_seconds()
+        )
         admission_times = []
         for _ in range(n):
-            days_ago = int(self.rng.integers(0, spread_days))
-            hour = int(self.rng.integers(0, 24))
-            minute = int(self.rng.integers(0, 60))
-            admit_time = reference_date - timedelta(days=days_ago)
-            admit_time = admit_time.replace(hour=hour, minute=minute, second=0)
+            offset_seconds = int(self.rng.integers(0, total_seconds))
+            admit_time = CLIF_DATE_START + timedelta(seconds=offset_seconds)
+            # Round to minute boundary for realistic timestamps
+            admit_time = admit_time.replace(second=0, microsecond=0)
             admission_times.append(admit_time)
 
         # Sort chronologically for same patient
         return sorted(admission_times)
 
+    # CLIF 2.1.0 permissible values
+    ADMISSION_TYPE_CATEGORIES = ["ed", "facility", "osh", "direct", "elective", "other"]
+    # Consortium aggregate: ED 65.2%, Facility 3.3%, OSH 14.5%, Direct 5.8%,
+    # Elective 7.9%, Other 2.5%
+    ADMISSION_TYPE_WEIGHTS = [0.652, 0.033, 0.145, 0.058, 0.079, 0.025]
+
+    DISCHARGE_CATEGORIES = [
+        "Home", "Home Health", "SNF", "Expired", "Rehab",
+        "Hospice", "LTACH", "Acute Care Hospital",
+        "AMA", "Left AMA",
+        "Psych", "Jail", "Homeless",
+        "Still In", "Unknown", "Other", "Other Facility",
+    ]
+
     def _sample_admission_type(self) -> str:
-        """Sample admission type with realistic weights."""
-        weights = [0.50, 0.25, 0.20, 0.0, 0.03, 0.01, 0.01]
-        return self.sample_category("admission_type", 1, weights)[0]
+        """Sample admission type per CLIF 2.1.0 schema."""
+        weights = np.array(self.ADMISSION_TYPE_WEIGHTS, dtype=float)
+        weights /= weights.sum()
+        return self.rng.choice(self.ADMISSION_TYPE_CATEGORIES, p=weights)
+
+    # Mapping from discharge_category to realistic discharge_name values
+    DISCHARGE_NAME_MAP = {
+        "Home": [
+            "discharged to home", "discharged home", "home",
+            "discharged to home or self care",
+        ],
+        "Home Health": [
+            "discharged to home with home health",
+            "home with home health services",
+        ],
+        "SNF": [
+            "skilled nursing facility", "discharged to snf",
+            "discharged to skilled nursing facility",
+        ],
+        "Expired": ["expired", "died", "deceased"],
+        "Rehab": [
+            "acute rehabilitation", "discharged to rehab",
+            "inpatient rehabilitation facility",
+        ],
+        "Hospice": [
+            "hospice - home", "hospice - facility",
+            "discharged to hospice",
+        ],
+        "LTACH": [
+            "long term acute care hospital", "discharged to ltach",
+        ],
+        "Acute Care Hospital": [
+            "transferred to another acute care hospital",
+            "transfer to acute care hospital",
+        ],
+        "AMA": ["left against medical advice", "ama"],
+        "Left AMA": ["left against medical advice", "ama"],
+        "Psych": [
+            "psychiatric facility", "discharged to psych",
+        ],
+        "Jail": ["correctional facility", "discharged to jail"],
+        "Homeless": ["homeless shelter", "homeless"],
+        "Still In": ["still hospitalized", "still in"],
+        "Unknown": ["unknown", "not documented"],
+        "Other": ["other", "other disposition"],
+        "Other Facility": ["other facility", "other healthcare facility"],
+    }
+
+    def _get_discharge_name(self, category: str) -> str:
+        """Get a realistic discharge name for a discharge category."""
+        names = self.DISCHARGE_NAME_MAP.get(category, ["other"])
+        return self.rng.choice(names)
 
     def _sample_discharge_category(self) -> str:
-        """Sample non-death discharge category."""
-        # Weights for non-expired discharges
-        weights = [0.55, 0.15, 0.0, 0.05, 0.08, 0.05, 0.02, 0.05, 0.03, 0.02]
-        result = self.sample_category("discharge", 1, weights)[0]
-        # Avoid "Expired" for non-terminal cases
-        if result == "Expired":
-            return "Home"
-        return result
+        """Sample non-death discharge category per CLIF 2.1.0 schema."""
+        non_expired = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
+        # 16 weights for 16 non-Expired categories
+        weights = np.array([
+            0.55, 0.03, 0.12, 0.05, 0.05,
+            0.03, 0.02, 0.02, 0.01, 0.01,
+            0.01, 0.005, 0.04, 0.005, 0.005, 0.005,
+        ], dtype=float)
+        weights = weights[:len(non_expired)]
+        weights /= weights.sum()
+        return self.rng.choice(non_expired, p=weights)

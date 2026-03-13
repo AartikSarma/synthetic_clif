@@ -9,3 +9,6 @@ build/
 
 # Generated data (custom runs)
 data/
+
+# 10K dataset (distributed via GitHub Releases)
+synth_clif_10k/

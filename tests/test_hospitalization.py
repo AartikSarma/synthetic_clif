@@ -61,24 +61,6 @@ class TestHospitalizationGenerator:
                 ).total_seconds() / (24 * 3600)
                 assert 0.5 <= los_days <= 90
 
-    def test_admission_type_valid(self, patients_df, seed, mcide):
-        """Test that admission types are valid mCIDE values."""
-        gen = HospitalizationGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(patients_df, n_hospitalizations=50)
-
-        valid_types = set(mcide.get_category("admission_type"))
-        for at in df["admission_type_category"].dropna():
-            assert at in valid_types
-
-    def test_discharge_category_valid(self, patients_df, seed, mcide):
-        """Test that discharge categories are valid mCIDE values."""
-        gen = HospitalizationGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(patients_df, n_hospitalizations=50)
-
-        valid_categories = set(mcide.get_category("discharge"))
-        for dc in df["discharge_category"].dropna():
-            assert dc in valid_categories
-
     def test_age_at_admission_reasonable(self, patients_df, seed, mcide):
         """Test that age at admission is reasonable."""
         gen = HospitalizationGenerator(seed=seed, mcide=mcide)

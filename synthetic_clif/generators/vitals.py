@@ -20,7 +20,7 @@ class VitalsGenerator(BaseGenerator):
     - recorded_dttm (irregular timestamps, ~hourly in ICU, ~q4h elsewhere)
     - vital_category (mCIDE: temp_c, heart_rate, sbp, dbp, spo2, etc.)
     - vital_value (realistic ranges with temporal autocorrelation)
-    - meas_site_category (measurement site)
+    - meas_site_name (measurement site)
 
     Features:
     - Temporal autocorrelation (values don't jump unrealistically)
@@ -41,12 +41,18 @@ class VitalsGenerator(BaseGenerator):
         "weight_kg": (80.0, 20.0, 40.0, 200.0),
     }
 
+    # Specific ICU unit categories (must match ADTGenerator.ICU_CATEGORIES)
+    ICU_CATEGORIES = {"MICU", "SICU", "CCU", "NICU"}
+
     # Measurement frequency in hours by location
     FREQUENCY_BY_LOCATION = {
-        "icu": 1.0,
-        "ed": 1.0,
-        "stepdown": 2.0,
-        "ward": 4.0,
+        "MICU": 1.0,
+        "SICU": 1.0,
+        "CCU": 1.0,
+        "NICU": 1.0,
+        "ED": 1.0,
+        "Stepdown": 2.0,
+        "Ward": 4.0,
         "other": 4.0,
     }
 
@@ -93,11 +99,32 @@ class VitalsGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
+            # Add vital_name as lowercase version of vital_category
+            df["vital_name"] = df["vital_category"].str.lower()
             df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
 
-            # Add missingness and outliers
+            # Add missingness and outliers (per-category with physiological bounds)
             df = self.add_missingness(df, "vital_value", missingness_rate)
-            df = self.add_outliers(df, "vital_value", outlier_rate)
+            outlier_bounds = {
+                "temp_c": (32.0, 44.0),
+                "heart_rate": (0.0, 300.0),
+                "sbp": (0.0, 300.0),
+                "dbp": (0.0, 200.0),
+                "spo2": (50.0, 100.0),
+                "respiratory_rate": (0.0, 60.0),
+                "map": (0.0, 250.0),
+                "height_cm": (76.0, 255.0),
+                "weight_kg": (30.0, 1100.0),
+            }
+            for cat, (lb, ub) in outlier_bounds.items():
+                mask = df["vital_category"] == cat
+                if mask.any():
+                    subset = df.loc[mask].copy()
+                    subset = self.add_outliers(
+                        subset, "vital_value", outlier_rate,
+                        lower_bound=lb, upper_bound=ub,
+                    )
+                    df.loc[mask, "vital_value"] = subset["vital_value"]
 
         return df
 
@@ -125,13 +152,13 @@ class VitalsGenerator(BaseGenerator):
     ) -> str:
         """Get location at a specific time."""
         if locations is None:
-            return "icu"
+            return "MICU"
 
         for in_time, out_time, location in locations:
             if in_time <= time <= out_time:
                 return location
 
-        return "icu"
+        return "MICU"
 
     def _generate_hospitalization_vitals(
         self,
@@ -191,7 +218,7 @@ class VitalsGenerator(BaseGenerator):
                         "recorded_dttm": ts,
                         "vital_category": "temp_c",
                         "vital_value": state.temperature,
-                        "meas_site_category": self.rng.choice(
+                        "meas_site_name": self.rng.choice(
                             ["Oral", "Tympanic", "Temporal", "Axillary"]
                         ),
                     }
@@ -221,7 +248,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "heart_rate",
                 "vital_value": round(state.heart_rate, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -232,7 +259,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "sbp",
                 "vital_value": round(state.sbp, 0),
-                "meas_site_category": self.rng.choice(
+                "meas_site_name": self.rng.choice(
                     ["Arterial", None], p=[0.2, 0.8]
                 ),
             }
@@ -244,7 +271,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "dbp",
                 "vital_value": round(state.dbp, 0),
-                "meas_site_category": self.rng.choice(
+                "meas_site_name": self.rng.choice(
                     ["Arterial", None], p=[0.2, 0.8]
                 ),
             }
@@ -258,7 +285,7 @@ class VitalsGenerator(BaseGenerator):
                     "recorded_dttm": timestamp,
                     "vital_category": "map",
                     "vital_value": round(state.map_value, 0),
-                    "meas_site_category": None,
+                    "meas_site_name": None,
                 }
             )
 
@@ -269,7 +296,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "spo2",
                 "vital_value": round(state.spo2, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -280,7 +307,7 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "respiratory_rate",
                 "vital_value": round(state.respiratory_rate, 0),
-                "meas_site_category": None,
+                "meas_site_name": None,
             }
         )
 
@@ -306,13 +333,13 @@ class VitalsGenerator(BaseGenerator):
                 "recorded_dttm": timestamp,
                 "vital_category": "height_cm",
                 "vital_value": round(height, 1),
-                "meas_site_category": None,
+                "meas_site_name": None,
             },
             {
                 "hospitalization_id": hospitalization_id,
                 "recorded_dttm": timestamp,
                 "vital_category": "weight_kg",
                 "vital_value": round(weight, 1),
-                "meas_site_category": None,
+                "meas_site_name": None,
             },
         ]
