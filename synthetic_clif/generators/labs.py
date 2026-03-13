@@ -20,7 +20,7 @@ class LabsGenerator(BaseGenerator):
     - lab_category (mCIDE categories)
     - lab_value, lab_value_numeric (with realistic ranges)
     - reference_unit (standard units)
-    - lab_order_category (Routine, STAT, etc.)
+    - lab_order_category (blood_gas, bmp, cbc, coags, lft, misc per CLIF 2.1.0)
 
     Features:
     - Daily routine labs, PRN based on clinical status
@@ -357,18 +357,55 @@ class LabsGenerator(BaseGenerator):
                 value_str = f"{value:.1f}"
                 value = round(value, 1)
 
+            # Map lab_category to lab_order_category per CLIF 2.1.0 schema
+            lab_order_category = self._get_lab_order_category(lab_cat)
+
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
                     "lab_order_dttm": order_time,
                     "lab_collect_dttm": collect_time,
                     "lab_result_dttm": result_time,
+                    "lab_order_category": lab_order_category,
                     "lab_category": lab_cat,
                     "lab_value": value_str,
                     "lab_value_numeric": value,
                     "reference_unit": reference_units.get(lab_cat, ""),
-                    "lab_order_category": order_category,
                 }
             )
 
         return records
+
+    def _get_lab_order_category(self, lab_cat: str) -> str:
+        """Map lab_category to lab_order_category per CLIF 2.1.0 schema.
+        
+        Permissible values: blood_gas, bmp, cbc, coags, lft, misc
+        """
+        blood_gas_labs = {"ph", "pco2", "po2", "base_excess", "ph_arterial", "ph_venous",
+                          "pco2_arterial", "po2_arterial", "pco2_venous", "so2_arterial",
+                          "so2_mixed_venous", "so2_central_venous"}
+        bmp_labs = {"sodium", "potassium", "chloride", "bicarbonate", "bun", "creatinine",
+                    "glucose", "glucose_serum", "glucose_fingerstick", "calcium", "calcium_total",
+                    "calcium_ionized", "magnesium", "phosphate"}
+        cbc_labs = {"hemoglobin", "hematocrit", "wbc", "platelets", "platelet_count",
+                    "basophils_percent", "basophils_absolute", "eosinophils_percent",
+                    "eosinophils_absolute", "lymphocytes_percent", "lymphocytes_absolute",
+                    "monocytes_percent", "monocytes_absolute", "neutrophils_percent",
+                    "neutrophils_absolute"}
+        coags_labs = {"inr", "pt", "ptt", "fibrinogen", "d_dimer"}
+        lft_labs = {"ast", "alt", "alkaline_phosphatase", "bilirubin_total",
+                    "bilirubin_direct", "bilirubin_conjugated", "bilirubin_unconjugated",
+                    "albumin", "total_protein", "ldh"}
+
+        if lab_cat in blood_gas_labs:
+            return "blood_gas"
+        elif lab_cat in bmp_labs:
+            return "bmp"
+        elif lab_cat in cbc_labs:
+            return "cbc"
+        elif lab_cat in coags_labs:
+            return "coags"
+        elif lab_cat in lft_labs:
+            return "lft"
+        else:
+            return "misc"

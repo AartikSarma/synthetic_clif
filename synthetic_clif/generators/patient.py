@@ -16,21 +16,31 @@ class PatientGenerator(BaseGenerator):
 
     Creates patient table with:
     - patient_id (UUID format)
-    - birth_date, death_dttm
-    - race_category, ethnicity_category, sex_category, language_category (mCIDE)
+    - sex_category, race_category, ethnicity_category, language_category (mCIDE categories)
+    - birth_date (realistic age distribution 18-95)
+    - death_dttm (~15% mortality, correlated with hospitalizations)
     """
 
-    # CLIF 2.1.0 language categories
+    # Language categories per CLIF 2.1.0 schema
     LANGUAGE_CATEGORIES = [
-        "English", "Spanish", "French", "Haitian Creole", "Italian",
-        "Portuguese", "German", "Chinese", "Vietnamese", "Korean",
-        "Tagalog", "Arabic", "Russian", "Sign Language", "Unknown or NA",
+        "English",
+        "Spanish",
+        "French",
+        "Haitian Creole",
+        "Italian",
+        "Portuguese",
+        "German",
+        "Chinese",
+        "Vietnamese",
+        "Korean",
+        "Tagalog",
+        "Arabic",
+        "Russian",
+        "Sign Language",
+        "Unknown or NA",
     ]
-    LANGUAGE_WEIGHTS = [
-        0.78, 0.12, 0.01, 0.005, 0.005,
-        0.01, 0.005, 0.02, 0.01, 0.01,
-        0.01, 0.01, 0.005, 0.005, 0.015,
-    ]
+    # Weights roughly based on US demographics
+    LANGUAGE_WEIGHTS = [0.78, 0.12, 0.01, 0.005, 0.005, 0.01, 0.005, 0.02, 0.01, 0.01, 0.01, 0.01, 0.005, 0.005, 0.02]
 
     def __init__(
         self,
@@ -77,11 +87,11 @@ class PatientGenerator(BaseGenerator):
         ethnicity_weights = [0.058, 0.867, 0.074]
         ethnicity_categories = self.sample_category("ethnicity", n_patients, ethnicity_weights)
 
-        # Generate language categories
-        lang_weights = np.array(self.LANGUAGE_WEIGHTS[:len(self.LANGUAGE_CATEGORIES)], dtype=float)
-        lang_weights /= lang_weights.sum()
+        # Generate language categories per CLIF 2.1.0 schema
+        language_weights = np.array(self.LANGUAGE_WEIGHTS[:len(self.LANGUAGE_CATEGORIES)], dtype=float)
+        language_weights /= language_weights.sum()
         language_categories = self.rng.choice(
-            self.LANGUAGE_CATEGORIES, size=n_patients, p=lang_weights
+            self.LANGUAGE_CATEGORIES, size=n_patients, p=language_weights
         ).tolist()
 
         # Generate birth dates (age distribution typical for ICU)
@@ -101,7 +111,7 @@ class PatientGenerator(BaseGenerator):
             days_until_death = int(self.rng.integers(0, 90))
             death_dttms[idx] = reference_date - timedelta(days=days_until_death)
 
-        # Create DataFrame (column order per CLIF 2.1.0 schema)
+        # Create DataFrame with columns ordered per CLIF 2.1.0 schema
         df = pd.DataFrame(
             {
                 "patient_id": patient_ids,
