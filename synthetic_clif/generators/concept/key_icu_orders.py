@@ -72,7 +72,7 @@ class KeyICUOrdersGenerator(BaseGenerator):
                         "order_dttm": order_time,
                         "order_category": order_cat,
                         "order_name": order_cat,
-                        "order_status": self.rng.choice(
+                        "order_status_name": self.rng.choice(
                             ["Completed", "Active", "Discontinued"],
                             p=[0.7, 0.25, 0.05],
                         ),

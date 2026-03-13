@@ -65,7 +65,7 @@ class IntakeOutputGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
+            df["intake_dttm"] = pd.to_datetime(df["intake_dttm"], utc=True)
 
         return df
 
@@ -99,10 +99,9 @@ class IntakeOutputGenerator(BaseGenerator):
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
-                        "recorded_dttm": ts,
-                        "io_category": io_cat,
-                        "io_type": "intake",
-                        "volume_ml": round(volume, 0),
+                        "intake_dttm": ts,
+                        "in_out_flag": 1,
+                        "amount": round(volume, 0),
                         "fluid_name": self._get_fluid_name(io_cat),
                     }
                 )
@@ -128,10 +127,9 @@ class IntakeOutputGenerator(BaseGenerator):
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
-                        "recorded_dttm": ts,
-                        "io_category": io_cat,
-                        "io_type": "output",
-                        "volume_ml": round(volume, 0),
+                        "intake_dttm": ts,
+                        "in_out_flag": 0,
+                        "amount": round(volume, 0),
                         "fluid_name": None,
                     }
                 )

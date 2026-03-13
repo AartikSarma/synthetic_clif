@@ -79,8 +79,9 @@ class ProviderGenerator(BaseGenerator):
                                     "hospitalization_id": hosp_id,
                                     "provider_id": f"{provider_id}-{shift}",
                                     "provider_role_category": role,
+                                    "provider_role_name": self.name_from_category(role.lower()),
                                     "start_dttm": start,
-                                    "end_dttm": end,
+                                    "stop_dttm": end,
                                 }
                             )
                     else:
@@ -90,8 +91,9 @@ class ProviderGenerator(BaseGenerator):
                                 "hospitalization_id": hosp_id,
                                 "provider_id": provider_id,
                                 "provider_role_category": role,
+                                "provider_role_name": self.name_from_category(role.lower()),
                                 "start_dttm": admit_time,
-                                "end_dttm": discharge_time,
+                                "stop_dttm": discharge_time,
                             }
                         )
 
@@ -99,6 +101,6 @@ class ProviderGenerator(BaseGenerator):
 
         if len(df) > 0:
             df["start_dttm"] = pd.to_datetime(df["start_dttm"], utc=True)
-            df["end_dttm"] = pd.to_datetime(df["end_dttm"], utc=True)
+            df["stop_dttm"] = pd.to_datetime(df["stop_dttm"], utc=True)
 
         return df

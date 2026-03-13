@@ -18,24 +18,33 @@ class TransfusionGenerator(BaseGenerator):
         "Packed RBCs": {
             "probability": 0.20,
             "volume_ml": 300,
-            "units": 1,
+            "duration_hours": (1, 4),
         },
         "Fresh Frozen Plasma": {
             "probability": 0.08,
             "volume_ml": 250,
-            "units": 1,
+            "duration_hours": (0.5, 1),
         },
         "Platelets": {
             "probability": 0.06,
             "volume_ml": 300,
-            "units": 1,
+            "duration_hours": (0.5, 1),
         },
         "Cryoprecipitate": {
             "probability": 0.02,
             "volume_ml": 100,
-            "units": 5,
+            "duration_hours": (0.5, 1),
         },
     }
+
+    PRODUCT_CODES = {
+        "Packed RBCs": "E0027",
+        "Fresh Frozen Plasma": "E0032",
+        "Platelets": "E0033",
+        "Cryoprecipitate": "E0034",
+    }
+
+    ATTRIBUTES = ["Irradiated", "Leukoreduced", "CMV Negative", None]
 
     def generate(
         self,
@@ -74,25 +83,36 @@ class TransfusionGenerator(BaseGenerator):
                 for i in range(n_transfusions):
                     # Transfusion timing
                     hours_from_admit = self.rng.uniform(0, los_hours * 0.9)
-                    transfusion_time = admit_time + timedelta(hours=hours_from_admit)
+                    start_time = admit_time + timedelta(hours=hours_from_admit)
 
-                    if transfusion_time >= discharge_time:
+                    if start_time >= discharge_time:
                         continue
+
+                    # Duration based on product type
+                    dur_low, dur_high = params["duration_hours"]
+                    duration_hours = self.rng.uniform(dur_low, dur_high)
+                    end_time = start_time + timedelta(hours=duration_hours)
+
+                    # Attribute (some products have special attributes)
+                    attribute = self.rng.choice(self.ATTRIBUTES)
 
                     records.append(
                         {
                             "hospitalization_id": hosp_id,
-                            "transfusion_dttm": transfusion_time,
-                            "product_category": product_name,
-                            "product_name": product_name,
-                            "volume_ml": float(params["volume_ml"]),
-                            "units": float(params["units"]),
+                            "transfusion_start_dttm": start_time,
+                            "transfusion_end_dttm": end_time,
+                            "component_name": product_name,
+                            "attribute_name": attribute,
+                            "volume_transfused": float(params["volume_ml"]),
+                            "volume_units": "mL",
+                            "product_code": self.PRODUCT_CODES.get(product_name),
                         }
                     )
 
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["transfusion_dttm"] = pd.to_datetime(df["transfusion_dttm"], utc=True)
+            df["transfusion_start_dttm"] = pd.to_datetime(df["transfusion_start_dttm"], utc=True)
+            df["transfusion_end_dttm"] = pd.to_datetime(df["transfusion_end_dttm"], utc=True)
 
         return df

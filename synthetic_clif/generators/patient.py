@@ -128,6 +128,12 @@ class PatientGenerator(BaseGenerator):
         df["birth_date"] = pd.to_datetime(df["birth_date"])
         df["death_dttm"] = pd.to_datetime(df["death_dttm"], utc=True)
 
+        # Derive _name companion columns
+        df["race_name"] = df["race_category"].apply(lambda x: self.name_from_category(x) if pd.notna(x) else None)
+        df["sex_name"] = df["sex_category"].apply(lambda x: self.name_from_category(x) if pd.notna(x) else None)
+        df["ethnicity_name"] = df["ethnicity_category"].apply(lambda x: self.name_from_category(x) if pd.notna(x) else None)
+        df["language_name"] = df["language_category"]  # already readable
+
         # Add some missingness to demographics (rare)
         df = self.add_missingness(df, "race_category", 0.03)
         df = self.add_missingness(df, "ethnicity_category", 0.02)

@@ -269,6 +269,7 @@ class RespiratoryGenerator(BaseGenerator):
         record = {
             "hospitalization_id": hospitalization_id,
             "recorded_dttm": timestamp,
+            "device_id": f"RESP-{self.rng.integers(1000, 9999)}",
             "device_name": device.lower(),
             "device_category": device,
             "vent_brand_name": None,

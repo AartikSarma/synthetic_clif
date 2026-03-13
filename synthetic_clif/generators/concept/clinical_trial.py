@@ -53,27 +53,40 @@ class ClinicalTrialGenerator(BaseGenerator):
             # Select trial
             trial = self.rng.choice(self.TRIALS)
 
-            # Enrollment timing (usually within 48 hours of admission)
-            enroll_time = admit_time + timedelta(
+            # Consent timing (usually within 48 hours of admission)
+            consent_time = admit_time + timedelta(
                 hours=self.rng.uniform(4, 48)
             )
+
+            # Randomization happens 0-24 hours after consent
+            randomized_time = consent_time + timedelta(
+                hours=self.rng.uniform(0, 24)
+            )
+
+            # ~5% withdraw (those that would have been "Withdrawn")
+            withdrawal_time = None
+            if self.rng.random() < 0.05:
+                withdrawal_time = randomized_time + timedelta(
+                    days=self.rng.uniform(1, 14)
+                )
 
             records.append(
                 {
                     "hospitalization_id": hosp_id,
                     "trial_id": f"{trial['id_prefix']}-{self.rng.integers(1000, 9999)}",
                     "trial_name": trial["name"],
-                    "enrollment_dttm": enroll_time,
-                    "enrollment_status": self.rng.choice(
-                        ["Enrolled", "Screen Failure", "Withdrawn"],
-                        p=[0.80, 0.15, 0.05],
-                    ),
+                    "arm_id": self.rng.choice(["Treatment", "Control", "Placebo"]),
+                    "consent_dttm": consent_time,
+                    "randomized_dttm": randomized_time,
+                    "withdrawal_dttm": withdrawal_time,
                 }
             )
 
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["enrollment_dttm"] = pd.to_datetime(df["enrollment_dttm"], utc=True)
+            df["consent_dttm"] = pd.to_datetime(df["consent_dttm"], utc=True)
+            df["randomized_dttm"] = pd.to_datetime(df["randomized_dttm"], utc=True)
+            df["withdrawal_dttm"] = pd.to_datetime(df["withdrawal_dttm"], utc=True)
 
         return df

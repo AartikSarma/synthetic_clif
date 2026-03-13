@@ -81,6 +81,7 @@ class CodeStatusGenerator(BaseGenerator):
                 "patient_id": patient_id,
                 "start_dttm": admit_time,
                 "code_status_category": initial_status,
+                "code_status_name": self.name_from_category(initial_status),
             }
         )
 
@@ -97,6 +98,7 @@ class CodeStatusGenerator(BaseGenerator):
                         "patient_id": patient_id,
                         "start_dttm": transition_time,
                         "code_status_category": "DNR/DNI",
+                        "code_status_name": self.name_from_category("DNR/DNI"),
                     }
                 )
                 transition_time += timedelta(hours=self.rng.uniform(2, 24))
@@ -106,6 +108,7 @@ class CodeStatusGenerator(BaseGenerator):
                     "patient_id": patient_id,
                     "start_dttm": transition_time,
                     "code_status_category": "Other",
+                    "code_status_name": self.name_from_category("Other"),
                 }
             )
 
@@ -118,6 +121,7 @@ class CodeStatusGenerator(BaseGenerator):
                         "start_dttm": admit_time
                         + timedelta(hours=self.rng.uniform(24, upper_bound)),
                         "code_status_category": "Full",
+                        "code_status_name": self.name_from_category("Full"),
                     }
                 )
 
@@ -213,6 +217,7 @@ class PositionGenerator(BaseGenerator):
                         "hospitalization_id": hospitalization_id,
                         "recorded_dttm": ts,
                         "position_category": position,
+                        "position_name": self.name_from_category(position),
                     }
                 )
         else:
@@ -230,6 +235,7 @@ class PositionGenerator(BaseGenerator):
                         "hospitalization_id": hospitalization_id,
                         "recorded_dttm": ts,
                         "position_category": "not_prone",
+                        "position_name": self.name_from_category("not_prone"),
                     }
                 )
 
@@ -311,11 +317,16 @@ class CRRTTherapyGenerator(BaseGenerator):
         # CLIF 2.1.0 mode values: scuf, cvvh, cvvhd, cvvhdf, avvh
         mode = self.rng.choice(["cvvh", "cvvhd", "cvvhdf"], p=[0.3, 0.2, 0.5])
 
+        dialysis_machines = ["Prismaflex", "PrisMax", "NxStage", "Aquarius"]
+
         for ts in timestamps:
             record = {
                 "hospitalization_id": hospitalization_id,
                 "recorded_dttm": ts,
+                "device_id": f"CRRT-{self.rng.integers(1000, 9999)}",
                 "crrt_mode_category": mode,
+                "crrt_mode_name": self.name_from_category(mode),
+                "dialysis_machine_name": self.rng.choice(dialysis_machines),
                 "blood_flow_rate": round(self.rng.uniform(150, 250), 0),
                 "pre_filter_replacement_fluid_rate": None,
                 "post_filter_replacement_fluid_rate": None,

@@ -22,6 +22,19 @@ class PatientAssessmentsGenerator(BaseGenerator):
     - Other ICU assessments
     """
 
+    # Map assessment categories to assessment groups
+    ASSESSMENT_GROUPS = {
+        "gcs_total": "gcs",
+        "gcs_eye": "gcs",
+        "gcs_verbal": "gcs",
+        "gcs_motor": "gcs",
+        "RASS": "sedation",
+        "cam_total": "delirium",
+        "NRS": "pain",
+        "braden_total": "skin",
+        "Morse Fall Scale": "fall_risk",
+    }
+
     # Assessment parameters
     ASSESSMENT_PARAMS = {
         "gcs_total": {
@@ -220,42 +233,19 @@ class PatientAssessmentsGenerator(BaseGenerator):
             gcs_total = gcs_eye + gcs_verbal + gcs_motor
 
             # Add component scores
-            records.append(
-                {
-                    "hospitalization_id": hospitalization_id,
-                    "recorded_dttm": ts,
-                    "assessment_category": "gcs_total",
-                    "numerical_value": float(gcs_total),
-                    "categorical_value": None,
-                }
-            )
-            records.append(
-                {
-                    "hospitalization_id": hospitalization_id,
-                    "recorded_dttm": ts,
-                    "assessment_category": "gcs_eye",
-                    "numerical_value": float(gcs_eye),
-                    "categorical_value": None,
-                }
-            )
-            records.append(
-                {
-                    "hospitalization_id": hospitalization_id,
-                    "recorded_dttm": ts,
-                    "assessment_category": "gcs_verbal",
-                    "numerical_value": float(gcs_verbal),
-                    "categorical_value": None,
-                }
-            )
-            records.append(
-                {
-                    "hospitalization_id": hospitalization_id,
-                    "recorded_dttm": ts,
-                    "assessment_category": "gcs_motor",
-                    "numerical_value": float(gcs_motor),
-                    "categorical_value": None,
-                }
-            )
+            for cat, val in [("gcs_total", gcs_total), ("gcs_eye", gcs_eye),
+                             ("gcs_verbal", gcs_verbal), ("gcs_motor", gcs_motor)]:
+                records.append(
+                    {
+                        "hospitalization_id": hospitalization_id,
+                        "recorded_dttm": ts,
+                        "assessment_category": cat,
+                        "assessment_name": self.name_from_category(cat),
+                        "assessment_group": self.ASSESSMENT_GROUPS.get(cat, "other"),
+                        "numerical_value": float(val),
+                        "categorical_value": None,
+                    }
+                )
 
         return records
 
@@ -290,6 +280,8 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "RASS",
+                    "assessment_name": self.name_from_category("RASS"),
+                    "assessment_group": self.ASSESSMENT_GROUPS.get("RASS", "other"),
                     "numerical_value": float(rass),
                     "categorical_value": None,
                 }
@@ -335,6 +327,8 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "cam_total",
+                    "assessment_name": self.name_from_category("cam_total"),
+                    "assessment_group": self.ASSESSMENT_GROUPS.get("cam_total", "other"),
                     "numerical_value": result_value,
                     "categorical_value": result_text,
                 }
@@ -376,6 +370,8 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "NRS",
+                    "assessment_name": self.name_from_category("NRS"),
+                    "assessment_group": self.ASSESSMENT_GROUPS.get("NRS", "other"),
                     "numerical_value": float(pain),
                     "categorical_value": None,
                 }
@@ -409,6 +405,8 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "braden_total",
+                    "assessment_name": self.name_from_category("braden_total"),
+                    "assessment_group": self.ASSESSMENT_GROUPS.get("braden_total", "other"),
                     "numerical_value": float(braden),
                     "categorical_value": None,
                 }
@@ -421,6 +419,8 @@ class PatientAssessmentsGenerator(BaseGenerator):
                     "hospitalization_id": hospitalization_id,
                     "recorded_dttm": ts,
                     "assessment_category": "Morse Fall Scale",
+                    "assessment_name": self.name_from_category("Morse Fall Scale"),
+                    "assessment_group": self.ASSESSMENT_GROUPS.get("Morse Fall Scale", "other"),
                     "numerical_value": float(morse),
                     "categorical_value": None,
                 }

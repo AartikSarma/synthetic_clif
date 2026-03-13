@@ -244,3 +244,32 @@ class BaseGenerator(ABC):
     def generate_uuids(self, n: int) -> list[str]:
         """Generate n UUID-format identifiers."""
         return [self.generate_uuid() for _ in range(n)]
+
+    @staticmethod
+    def name_from_category(category: str) -> str:
+        """Convert a snake_case category value to a human-readable name.
+
+        Examples: 'heart_rate' -> 'Heart Rate', 'icu' -> 'ICU', 'imv' -> 'IMV'
+        """
+        special_cases = {
+            "icu": "ICU", "imv": "IMV", "nippv": "NIPPV", "cpap": "CPAP",
+            "ecmo": "ECMO", "iabp": "IABP", "crrt": "CRRT", "picc": "PICC",
+            "iv": "IV", "im": "IM", "po": "PO", "ed": "ED",
+            "dnr": "DNR", "dni": "DNI", "dnar": "DNAR", "udnr": "UDNR",
+            "snf": "SNF", "ltach": "LTACH", "ama": "AMA",
+            "nc": "NC", "mcs": "MCS", "spo2": "SpO2", "fio2": "FiO2",
+            "sbp": "SBP", "dbp": "DBP", "map": "MAP",
+            "gcs": "GCS", "rass": "RASS", "nrs": "NRS", "cam": "CAM",
+            "pcr": "PCR", "rsv": "RSV",
+            "cvvh": "CVVH", "cvvhd": "CVVHD", "cvvhdf": "CVVHDF", "scuf": "SCUF",
+            "avvh": "AVVH",
+        }
+        parts = category.split("_")
+        result_parts = []
+        for part in parts:
+            lower = part.lower()
+            if lower in special_cases:
+                result_parts.append(special_cases[lower])
+            else:
+                result_parts.append(part.capitalize())
+        return " ".join(result_parts)

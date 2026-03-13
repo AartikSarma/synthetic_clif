@@ -161,6 +161,8 @@ class PatientProceduresGenerator(BaseGenerator):
                         "procedure_billed_dttm": proc_time,
                         "procedure_code": code,
                         "procedure_code_format": code_type,
+                        "billing_provider_id": f"PROV-{self.rng.integers(10000, 99999)}",
+                        "performing_provider_id": f"PROV-{self.rng.integers(10000, 99999)}",
                     }
                 )
 

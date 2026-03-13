@@ -18,22 +18,22 @@ class PlaceBasedIndexGenerator(BaseGenerator):
 
     def generate(
         self,
-        patients_df: pd.DataFrame,
+        hospitalizations_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """Generate place-based index data.
 
         Args:
-            patients_df: Patient table DataFrame
+            hospitalizations_df: Hospitalization table DataFrame
 
         Returns:
             DataFrame with place_based_index columns
         """
         records = []
 
-        for _, patient in patients_df.iterrows():
-            patient_id = patient["patient_id"]
+        for _, hosp in hospitalizations_df.iterrows():
+            hosp_id = hosp["hospitalization_id"]
 
-            for index_type in self.INDEX_TYPES:
+            for index_name in self.INDEX_TYPES:
                 # Generate correlated index values
                 # Higher ADI correlates with higher SVI
                 base_percentile = self.rng.uniform(0, 100)
@@ -42,23 +42,19 @@ class PlaceBasedIndexGenerator(BaseGenerator):
                 )
 
                 # Index value (typically 1-100 for ADI, 0-1 for SVI)
-                if index_type == "ADI":
+                if index_name == "ADI":
                     value = round(percentile, 0)
-                elif index_type == "SVI":
+                elif index_name == "SVI":
                     value = round(percentile / 100, 3)
                 else:
                     value = round(percentile, 1)
 
                 records.append(
                     {
-                        "patient_id": patient_id,
-                        "index_type": index_type,
+                        "hospitalization_id": hosp_id,
+                        "index_name": index_name,
                         "index_value": value,
-                        "index_percentile": round(percentile, 1),
-                        "geography_type": "Census Tract",
-                        "geography_code": f"{self.rng.integers(1, 56):02d}"
-                        f"{self.rng.integers(1, 999):03d}"
-                        f"{self.rng.integers(100000, 999999):06d}",
+                        "index_version": self.rng.choice(["2020", "2021"]),
                     }
                 )
 

@@ -326,6 +326,12 @@ class MedicationContinuousGenerator(BaseGenerator):
                     current_dose + delta, dose_range[0], dose_range[1]
                 )
 
+            mar_action_cat = self.rng.choice(
+                ["dose_change", "going", "start", "stop", "verify"],
+                p=[0.3, 0.4, 0.1, 0.1, 0.1],
+            )
+            med_route_cat = "iv"
+
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -336,11 +342,10 @@ class MedicationContinuousGenerator(BaseGenerator):
                     "med_group": self._get_med_group_continuous(params["indication"]),
                     "med_dose": round(current_dose, 3),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": "iv",
-                    "mar_action_category": self.rng.choice(
-                        ["dose_change", "going", "start", "stop", "verify"],
-                        p=[0.3, 0.4, 0.1, 0.1, 0.1],
-                    ),
+                    "med_route_category": med_route_cat,
+                    "med_route_name": self.name_from_category(med_route_cat),
+                    "mar_action_category": mar_action_cat,
+                    "mar_action_name": self.name_from_category(mar_action_cat),
                     "mar_action_group": "administered",
                 }
             )
@@ -592,6 +597,7 @@ class MedicationIntermittentGenerator(BaseGenerator):
             mar_group = "administered" if action in ["given", "bolus"] else (
                 "not_administered" if action == "not_given" else "other"
             )
+            med_route_cat = self._map_route(params["route"].lower())
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -602,8 +608,10 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     "med_group": self._get_med_group_intermittent(params["indication"]),
                     "med_dose": round(dose, 0),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": self._map_route(params["route"].lower()),
+                    "med_route_category": med_route_cat,
+                    "med_route_name": self.name_from_category(med_route_cat),
                     "mar_action_category": action,
+                    "mar_action_name": self.name_from_category(action),
                     "mar_action_group": mar_group,
                 }
             )

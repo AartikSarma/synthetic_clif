@@ -14,6 +14,14 @@ class MicrobiologyNoncultureGenerator(BaseGenerator):
     Creates microbiology_nonculture table with PCR and rapid tests.
     """
 
+    LOINC_CODES = {
+        "COVID-19 PCR": "94500-6",
+        "Influenza PCR": "92142-9",
+        "RSV PCR": "92131-2",
+        "Respiratory Viral Panel": "92143-7",
+        "C. diff Toxin": "34713-8",
+    }
+
     TESTS = {
         "COVID-19 PCR": {
             "probability": 0.8,
@@ -98,10 +106,18 @@ class MicrobiologyNoncultureGenerator(BaseGenerator):
                         "collect_dttm": collect_time,
                         "result_dttm": result_time,
                         "fluid_category": params["fluid_category"],
+                        "fluid_name": self.name_from_category(params["fluid_category"]),
                         "method_category": "pcr",
+                        "method_name": self.name_from_category("pcr"),
                         "organism_category": organism,
                         "organism_group": organism,
                         "result_category": result_cat,
+                        "result_name": self.name_from_category(result_cat),
+                        "micro_order_name": test_name,
+                        "reference_low": None,
+                        "reference_high": None,
+                        "result_units": None,
+                        "lab_loinc_code": self.LOINC_CODES.get(test_name),
                     }
                 )
 

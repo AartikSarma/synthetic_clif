@@ -189,7 +189,7 @@ class MicrobiologyCultureGenerator(BaseGenerator):
                 organism_group = self.ORGANISM_GROUPS.get(organism, "Other")
             else:
                 organism = "no_growth"
-                organism_id = None
+                organism_id = culture_id  # use culture_id as organism_id for no_growth
                 organism_group = "no_growth"
 
             # Generate timestamps
@@ -202,18 +202,31 @@ class MicrobiologyCultureGenerator(BaseGenerator):
             method = self.rng.choice(
                 self.METHOD_CATEGORIES, p=self.METHOD_WEIGHTS
             )
+
+            # LOINC codes by fluid type
+            loinc_by_fluid = {
+                "blood_buffy": "634-6",
+                "genito_urinary_tract": "630-4",
+                "respiratory_tract": "6463-4",
+                "woundsite": "6462-6",
+            }
+
             records.append(
                 {
                     "patient_id": patient_id,
                     "hospitalization_id": hospitalization_id,
-                    "organism_id": organism_id if organism_id else culture_id,
+                    "organism_id": organism_id,
                     "order_dttm": order_time,
                     "collect_dttm": collect_time,
                     "result_dttm": result_time,
                     "fluid_category": fluid,
+                    "fluid_name": self.name_from_category(fluid),
                     "method_category": method,
+                    "method_name": self.name_from_category(method),
                     "organism_category": organism if organism != "no_growth" else "no_growth",
+                    "organism_name": self.name_from_category(organism),
                     "organism_group": organism_group,
+                    "lab_loinc_code": loinc_by_fluid.get(fluid, ""),
                 }
             )
 
@@ -324,12 +337,15 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
                 else:
                     susceptibility = "non_susceptible"
 
+                susceptibility_name = self.name_from_category(susceptibility)
                 records.append(
                     {
                         "organism_id": organism_id,
                         "antimicrobial_name": abx,
                         "antimicrobial_category": abx.lower().replace("-", "_").replace(" ", "_"),
                         "susceptibility_category": susceptibility,
+                        "sensitivity_name": susceptibility_name,
+                        "susceptibility_name": susceptibility_name,
                     }
                 )
 

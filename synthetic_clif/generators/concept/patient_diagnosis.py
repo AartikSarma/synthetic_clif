@@ -36,16 +36,27 @@ class PatientDiagnosisGenerator(BaseGenerator):
     def generate(
         self,
         patients_df: pd.DataFrame,
+        hospitalizations_df: pd.DataFrame = None,
     ) -> pd.DataFrame:
         """Generate patient diagnosis data.
 
         Args:
             patients_df: Patient table DataFrame
+            hospitalizations_df: Optional hospitalization table DataFrame.
+                If provided, diagnoses are assigned a hospitalization_id.
 
         Returns:
             DataFrame with patient_diagnosis columns
         """
         records = []
+
+        # Build patient_id -> hospitalization_ids mapping
+        patient_hosps = {}
+        if hospitalizations_df is not None and len(hospitalizations_df) > 0:
+            for _, hosp in hospitalizations_df.iterrows():
+                pid = hosp.get("patient_id")
+                if pid:
+                    patient_hosps.setdefault(pid, []).append(hosp["hospitalization_id"])
 
         for _, patient in patients_df.iterrows():
             patient_id = patient["patient_id"]
@@ -62,14 +73,23 @@ class PatientDiagnosisGenerator(BaseGenerator):
                 else:
                     dx_date = None
 
+                # Assign hospitalization_id if available
+                hosp_id = None
+                if patient_id in patient_hosps:
+                    hosp_id = self.rng.choice(patient_hosps[patient_id])
+
+                # Most chronic conditions have no end_dttm
+                end_dttm = None
+
                 records.append(
                     {
                         "patient_id": patient_id,
+                        "hospitalization_id": hosp_id,
                         "diagnosis_code": params["code"],
-                        "diagnosis_code_type": "ICD-10-CM",
-                        "diagnosis_name": dx_name,
-                        "diagnosis_dttm": dx_date,
-                        "diagnosis_source": self.rng.choice(
+                        "diagnosis_code_format": "ICD-10-CM",
+                        "start_dttm": dx_date,
+                        "end_dttm": end_dttm,
+                        "source_type": self.rng.choice(
                             ["Problem List", "Medical History", "Encounter"],
                             p=[0.5, 0.3, 0.2],
                         ),
@@ -79,6 +99,7 @@ class PatientDiagnosisGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["diagnosis_dttm"] = pd.to_datetime(df["diagnosis_dttm"], utc=True)
+            df["start_dttm"] = pd.to_datetime(df["start_dttm"], utc=True)
+            df["end_dttm"] = pd.to_datetime(df["end_dttm"], utc=True)
 
         return df

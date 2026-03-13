@@ -323,11 +323,11 @@ class SyntheticCLIFDataset:
             _log("microbiology_nonculture", t, len(self._tables["microbiology_nonculture"]))
 
             t = time.time()
-            self._tables["patient_diagnosis"] = self.patient_dx_gen.generate(patients)
+            self._tables["patient_diagnosis"] = self.patient_dx_gen.generate(patients, hospitalizations)
             _log("patient_diagnosis", t, len(self._tables["patient_diagnosis"]))
 
             t = time.time()
-            self._tables["place_based_index"] = self.place_index_gen.generate(patients)
+            self._tables["place_based_index"] = self.place_index_gen.generate(hospitalizations)
             _log("place_based_index", t, len(self._tables["place_based_index"]))
 
             t = time.time()

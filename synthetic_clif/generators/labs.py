@@ -21,12 +21,46 @@ class LabsGenerator(BaseGenerator):
     - lab_value, lab_value_numeric (with realistic ranges)
     - reference_unit (standard units)
     - lab_order_category (blood_gas, bmp, cbc, coags, lft, misc per CLIF 2.1.0)
+    - lab_order_name, lab_name, lab_specimen_name, lab_specimen_category, lab_loinc_code
 
     Features:
     - Daily routine labs, PRN based on clinical status
     - Proper timestamp ordering: order < collect < result
     - ~10% missingness for less common labs
     """
+
+    # LOINC codes by lab category
+    LAB_LOINC_CODES = {
+        "sodium": "2951-2", "potassium": "2823-3", "chloride": "2075-0",
+        "bicarbonate": "1963-8", "bun": "3094-0", "creatinine": "2160-0",
+        "glucose_serum": "2345-7", "calcium_total": "17861-6",
+        "albumin": "1751-7", "total_protein": "2885-2",
+        "ast": "1920-8", "alt": "1742-6", "alkaline_phosphatase": "6768-6",
+        "bilirubin_total": "1975-2", "bilirubin_conjugated": "1968-7",
+        "hemoglobin": "718-7", "wbc": "6690-2", "platelet_count": "777-3",
+        "inr": "6301-6", "pt": "5902-2", "ptt": "3173-2",
+        "lactate": "2524-7", "troponin_i": "10839-9", "crp": "1988-5",
+        "procalcitonin": "33959-8", "ph_arterial": "2744-1",
+        "pco2_arterial": "2019-8", "po2_arterial": "2703-7",
+        "ph_venous": "2746-6", "pco2_venous": "2021-4",
+        "so2_central_venous": "2716-9",
+        "fibrinogen": "3255-7", "d_dimer": "48065-7",
+        "magnesium": "19123-9", "phosphate": "2777-1",
+    }
+
+    # Panel name to human-readable order name
+    PANEL_TO_ORDER_NAME = {
+        "basic_metabolic": "Basic Metabolic Panel",
+        "comprehensive_metabolic": "Comprehensive Metabolic Panel",
+        "cbc": "Complete Blood Count",
+        "coagulation": "Coagulation Panel",
+        "abg_arterial": "Arterial Blood Gas",
+        "abg_venous": "Venous Blood Gas",
+        "lactate": "Lactate",
+        "liver": "Hepatic Function Panel",
+        "cardiac": "Cardiac Panel",
+        "inflammatory": "Inflammatory Markers",
+    }
 
     # Lab panels (labs typically ordered together)
     LAB_PANELS = {
@@ -149,8 +183,6 @@ class LabsGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            # Add lab_name as lowercase version of lab_category
-            df["lab_name"] = df["lab_category"].str.lower()
             df["lab_order_dttm"] = pd.to_datetime(df["lab_order_dttm"], utc=True)
             df["lab_collect_dttm"] = pd.to_datetime(df["lab_collect_dttm"], utc=True)
             df["lab_result_dttm"] = pd.to_datetime(df["lab_result_dttm"], utc=True)
@@ -356,6 +388,9 @@ class LabsGenerator(BaseGenerator):
             # Map lab_category to lab_order_category per CLIF 2.1.0 schema
             lab_order_category = self._get_lab_order_category(lab_cat)
 
+            # Derive specimen and order name
+            specimen_name, specimen_category = self._get_specimen(lab_cat, panel_name)
+
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -363,14 +398,31 @@ class LabsGenerator(BaseGenerator):
                     "lab_collect_dttm": collect_time,
                     "lab_result_dttm": result_time,
                     "lab_order_category": lab_order_category,
+                    "lab_order_name": self.PANEL_TO_ORDER_NAME.get(panel_name, panel_name),
                     "lab_category": lab_cat,
+                    "lab_name": lab_cat.lower(),
                     "lab_value": value_str,
                     "lab_value_numeric": value,
                     "reference_unit": reference_units.get(lab_cat, ""),
+                    "lab_loinc_code": self.LAB_LOINC_CODES.get(lab_cat, ""),
+                    "lab_specimen_name": specimen_name,
+                    "lab_specimen_category": specimen_category,
                 }
             )
 
         return records
+
+    def _get_specimen(self, lab_cat: str, panel_name: str) -> tuple[str, str]:
+        """Return (specimen_name, specimen_category) based on lab and panel."""
+        if panel_name in ("abg_arterial",):
+            return "Arterial Blood", "blood"
+        elif panel_name in ("abg_venous",):
+            return "Venous Blood", "blood"
+        elif panel_name == "cbc":
+            return "Whole Blood", "blood"
+        else:
+            name = self.rng.choice(["Serum", "Plasma"])
+            return name, "blood"
 
     def _get_lab_order_category(self, lab_cat: str) -> str:
         """Map lab_category to lab_order_category per CLIF 2.1.0 schema.

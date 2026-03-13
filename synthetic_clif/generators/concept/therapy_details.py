@@ -88,23 +88,24 @@ class TherapyDetailsGenerator(BaseGenerator):
                         params["duration_range"][0], params["duration_range"][1]
                     )
 
+                    session_type = self.rng.choice(
+                        ["Evaluation", "Treatment", "Re-evaluation"],
+                        p=[0.2, 0.7, 0.1] if i > 0 else [0.8, 0.15, 0.05],
+                    )
+
                     records.append(
                         {
                             "hospitalization_id": hosp_id,
-                            "therapy_dttm": session_time,
-                            "therapy_category": therapy_type,
-                            "therapy_type": self.rng.choice(
-                                ["Evaluation", "Treatment", "Re-evaluation"],
-                                p=[0.2, 0.7, 0.1] if i > 0 else [0.8, 0.15, 0.05],
-                            ),
-                            "duration_minutes": float(duration),
-                            "provider_id": f"TH-{self.rng.integers(1000, 9999)}",
+                            "session_start_dttm": session_time,
+                            "therapy_element_name": f"{therapy_type} {session_type}",
+                            "therapy_element_category": therapy_type,
+                            "therapy_element_value": f"{duration} minutes",
                         }
                     )
 
         df = pd.DataFrame(records)
 
         if len(df) > 0:
-            df["therapy_dttm"] = pd.to_datetime(df["therapy_dttm"], utc=True)
+            df["session_start_dttm"] = pd.to_datetime(df["session_start_dttm"], utc=True)
 
         return df

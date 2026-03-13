@@ -55,10 +55,6 @@ class ECMOMCSGenerator(BaseGenerator):
 
         if len(df) > 0:
             df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
-            # Ensure string columns have correct dtype
-            for col in ["device_name", "device_metric_name"]:
-                if col in df.columns:
-                    df[col] = df[col].astype("string")
 
         return df
 
@@ -114,23 +110,37 @@ class ECMOMCSGenerator(BaseGenerator):
                 "device_name": device.lower(),
                 "device_category": device,
                 "mcs_group": mcs_group,
-                "device_metric_name": None,
-                "device_rate": None,
-                "sweep": None,
+                "sweep_set": None,
                 "flow": None,
-                "fdO2": None,
+                "fdO2_set": None,
+                "ecmo_configuration_category": None,
+                "control_parameter_name": None,
+                "control_parameter_category": None,
+                "control_parameter_value": None,
             }
 
             if mcs_group == "ECMO":
                 record["flow"] = round(self.rng.uniform(3, 6), 1)
-                record["sweep"] = round(self.rng.uniform(2, 8), 1)
-                record["fdO2"] = round(self.rng.uniform(0.5, 1.0), 2)
-                record["device_rate"] = round(self.rng.uniform(2500, 4000), 0)
-            elif "Impella" in device or "CentriMag" in device:
+                record["sweep_set"] = round(self.rng.uniform(2, 8), 1)
+                record["fdO2_set"] = round(self.rng.uniform(0.5, 1.0), 2)
+                record["ecmo_configuration_category"] = self.rng.choice(["VV", "VA"])
+                record["control_parameter_name"] = "RPM"
+                record["control_parameter_category"] = "rpm"
+                record["control_parameter_value"] = round(self.rng.uniform(2500, 4000), 0)
+            elif "Impella" in device:
                 record["flow"] = round(self.rng.uniform(2, 5), 1)
-                record["device_rate"] = round(self.rng.uniform(30000, 50000), 0)
+                record["control_parameter_name"] = "P-Level"
+                record["control_parameter_category"] = "p-level"
+                record["control_parameter_value"] = round(self.rng.uniform(30000, 50000), 0)
+            elif "CentriMag" in device:
+                record["flow"] = round(self.rng.uniform(2, 5), 1)
+                record["control_parameter_name"] = "Speed"
+                record["control_parameter_category"] = "speed"
+                record["control_parameter_value"] = round(self.rng.uniform(30000, 50000), 0)
             elif device == "IABP":
                 record["flow"] = round(self.rng.uniform(0.5, 1.5), 1)
+                record["control_parameter_name"] = "Ratio"
+                record["control_parameter_category"] = "ratio"
 
             records.append(record)
 

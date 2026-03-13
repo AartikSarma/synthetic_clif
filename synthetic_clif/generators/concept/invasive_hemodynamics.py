@@ -100,12 +100,25 @@ class InvasiveHemodynamicsGenerator(BaseGenerator):
                 mean, std, lower, upper = params
                 value = np.clip(self.rng.normal(mean, std), lower, upper)
 
+                # Determine measure_category grouping
+                if hemo_cat in ("CVP", "PA Systolic", "PA Diastolic", "PA Mean", "PCWP"):
+                    measure_category = "pressure"
+                elif hemo_cat in ("Cardiac Output", "Cardiac Index"):
+                    measure_category = "flow"
+                elif hemo_cat in ("SVR", "PVR"):
+                    measure_category = "resistance"
+                elif hemo_cat == "SvO2":
+                    measure_category = "saturation"
+                else:
+                    measure_category = "other"
+
                 records.append(
                     {
                         "hospitalization_id": hospitalization_id,
                         "recorded_dttm": ts,
-                        "hemodynamic_category": hemo_cat,
-                        "hemodynamic_value": round(value, 1),
+                        "measure_name": hemo_cat,
+                        "measure_category": measure_category,
+                        "measure_value": round(value, 1),
                     }
                 )
 

@@ -112,16 +112,34 @@ class HospitalizationGenerator(BaseGenerator):
                 # Generate hospitalization ID (includes patient prefix)
                 hosp_id = f"{patient_id[:8]}-H{hosp_idx + 1:03d}"
 
+                admission_type_cat = self._sample_admission_type()
+
+                # Generate synthetic geographic data
+                state_fips = f"{self.rng.integers(1, 56):02d}"
+                county_fips = f"{self.rng.integers(1, 999):03d}"
+                tract = f"{self.rng.integers(100000, 999999):06d}"
+                zip5 = f"{self.rng.integers(10000, 99999)}"
+
                 records.append(
                     {
                         "hospitalization_id": hosp_id,
+                        "hospitalization_joined_id": hosp_id,
                         "patient_id": patient_id,
                         "admission_dttm": admit_time,
                         "discharge_dttm": discharge_time,
                         "age_at_admission": age_at_admission,
-                        "admission_type_category": self._sample_admission_type(),
+                        "admission_type_category": admission_type_cat,
+                        "admission_type_name": self.name_from_category(admission_type_cat),
                         "discharge_name": discharge_name,
                         "discharge_category": discharge_category,
+                        "zipcode_five_digit": zip5,
+                        "zipcode_nine_digit": f"{zip5}{self.rng.integers(1000, 9999)}",
+                        "census_block_code": f"{state_fips}{county_fips}{tract}{self.rng.integers(1000, 9999)}",
+                        "census_block_group_code": f"{state_fips}{county_fips}{tract[:5]}{self.rng.integers(1, 9)}",
+                        "census_tract": f"{state_fips}{county_fips}{tract}",
+                        "state_code": state_fips,
+                        "county_code": f"{state_fips}{county_fips}",
+                        "fips_version": "2020",
                     }
                 )
 
