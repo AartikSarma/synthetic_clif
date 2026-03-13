@@ -38,10 +38,9 @@ class TestADTGenerator:
         df = gen.generate(hospitalizations_df)
 
         assert "location_type" in df.columns
-        # ICU rows (specific ICU categories) should have a location_type; others should be null
-        icu_categories = set(ADTGenerator.ICU_CATEGORIES)
-        icu_rows = df[df["location_category"].isin(icu_categories)]
-        non_icu_rows = df[~df["location_category"].isin(icu_categories)]
+        # ICU rows should have a location_type; others should be null
+        icu_rows = df[df["location_category"] == "icu"]
+        non_icu_rows = df[df["location_category"] != "icu"]
 
         if len(icu_rows) > 0:
             assert icu_rows["location_type"].notna().all()

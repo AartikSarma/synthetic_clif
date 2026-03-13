@@ -227,7 +227,15 @@ class HospitalizationGenerator(BaseGenerator):
         """Sample non-death discharge category per CLIF 2.1.0 schema."""
         # Weights for non-expired discharges (excluding "Expired" at index 2)
         non_expired_cats = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
-        weights = [0.55, 0.12, 0.05, 0.05, 0.03, 0.02, 0.02, 0.01, 0.04, 0.03, 0.01, 0.04, 0.02, 0.005, 0.005]
+        # One weight per non-expired category (16 total):
+        # Home, SNF, Rehab, Hospice, LTACH, Acute Care, Group Home,
+        # Chem Dep, AMA, Assisted Living, Still Admitted, Missing,
+        # Other, Psychiatric, Shelter, Jail
+        weights = [0.55, 0.12, 0.05, 0.05, 0.03, 0.02, 0.02, 0.01, 0.04, 0.03, 0.01, 0.04, 0.02, 0.005, 0.005, 0.005]
         weights = np.array(weights[:len(non_expired_cats)], dtype=float)
         weights /= weights.sum()
         return self.rng.choice(non_expired_cats, p=weights)
+
+    def _get_discharge_name(self, discharge_category: str) -> str:
+        """Convert discharge category to a free-text discharge name."""
+        return discharge_category.lower().replace(" ", "_")

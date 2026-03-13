@@ -400,40 +400,33 @@ class MedicationIntermittentGenerator(BaseGenerator):
             "frequency_hours": 8,
             "indication": "antibiotic",
         },
-        "pantoprazole": {
-            "dose_range": (40, 40),
+        "acetaminophen": {
+            "dose_range": (500, 1000),
+            "unit": "mg",
+            "route": "enteral",
+            "frequency_hours": 6,
+            "indication": "analgesic",
+        },
+        "hydromorphone": {
+            "dose_range": (1, 4),
             "unit": "mg",
             "route": "IV",
-            "frequency_hours": 24,
-            "indication": "ppi",
+            "frequency_hours": 4,
+            "indication": "analgesic",
         },
-        "metoprolol": {
-            "dose_range": (25, 100),
+        "ketamine": {
+            "dose_range": (10, 30),
             "unit": "mg",
-            "route": "PO",
-            "frequency_hours": 12,
-            "indication": "cardiac",
+            "route": "IV",
+            "frequency_hours": 8,
+            "indication": "analgesic",
         },
-        "lisinopril": {
-            "dose_range": (5, 40),
+        "diphenhydramine": {
+            "dose_range": (25, 50),
             "unit": "mg",
-            "route": "PO",
-            "frequency_hours": 24,
-            "indication": "cardiac",
-        },
-        "aspirin": {
-            "dose_range": (81, 325),
-            "unit": "mg",
-            "route": "PO",
-            "frequency_hours": 24,
-            "indication": "cardiac",
-        },
-        "enoxaparin": {
-            "dose_range": (40, 80),
-            "unit": "mg",
-            "route": "SC",
-            "frequency_hours": 12,
-            "indication": "prophylaxis",
+            "route": "IV",
+            "frequency_hours": 8,
+            "indication": "analgesic",
         },
     }
 
@@ -483,14 +476,14 @@ class MedicationIntermittentGenerator(BaseGenerator):
         """Generate intermittent meds for one hospitalization."""
         records = []
 
-        # PPI for most patients (stress ulcer prophylaxis)
+        # Scheduled acetaminophen for most patients
         if self.rng.random() < 0.85:
             records.extend(
                 self._generate_scheduled_med(
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "pantoprazole",
+                    "acetaminophen",
                 )
             )
 
@@ -530,25 +523,25 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     )
                 )
 
-        # DVT prophylaxis
+        # Antihistamine (common scheduled med)
         if self.rng.random() < 0.7:
             records.extend(
                 self._generate_scheduled_med(
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "enoxaparin",
+                    "diphenhydramine",
                 )
             )
 
-        # Cardiac meds for some patients
+        # PRN analgesics for some patients
         if self.rng.random() < 0.3:
             records.extend(
                 self._generate_scheduled_med(
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "metoprolol",
+                    "hydromorphone",
                 )
             )
         if self.rng.random() < 0.2:
@@ -557,7 +550,7 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "aspirin",
+                    "ketamine",
                 )
             )
 
@@ -609,7 +602,7 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     "med_group": self._get_med_group_intermittent(params["indication"]),
                     "med_dose": round(dose, 0),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": params["route"].lower(),
+                    "med_route_category": self._map_route(params["route"].lower()),
                     "mar_action_category": action,
                     "mar_action_group": mar_group,
                 }
@@ -629,12 +622,29 @@ class MedicationIntermittentGenerator(BaseGenerator):
         )
 
     @staticmethod
+    def _map_route(route: str) -> str:
+        """Map route abbreviations to CLIF 2.1.0 permissible med_route_category values.
+
+        Permissible values: enteral, im, iv, buccal_sublingual, intrapleural.
+        """
+        route_mapping = {
+            "iv": "iv",
+            "im": "im",
+            "po": "enteral",
+            "sc": "im",
+            "enteral": "enteral",
+            "buccal_sublingual": "buccal_sublingual",
+            "intrapleural": "intrapleural",
+        }
+        return route_mapping.get(route, "iv")
+
+    @staticmethod
     def _get_med_group_intermittent(indication: str) -> str:
         """Map indication to CLIF 2.1.0 med_group for intermittent meds."""
         mapping = {
             "antibiotic": "CMS_sepsis_qualifying_antibiotics",
             "ppi": "other",
-            "cardiac": "other",
+            "analgesic": "other",
             "prophylaxis": "other",
         }
         return mapping.get(indication, "other")

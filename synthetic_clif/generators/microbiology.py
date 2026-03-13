@@ -320,7 +320,7 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
                 if self.rng.random() < sus_rate:
                     susceptibility = "susceptible"
                 elif self.rng.random() < 0.3:
-                    susceptibility = "intermediate"
+                    susceptibility = "indeterminate"
                 else:
                     susceptibility = "non_susceptible"
 

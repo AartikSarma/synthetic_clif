@@ -63,13 +63,13 @@ class RespiratoryGenerator(BaseGenerator):
             "pressure_control_range": (15, 35),
         },
         "NIPPV": {
-            "modes": ["BiPAP", "CPAP"],
+            "modes": ["Other", "Pressure Support/CPAP"],
             "fio2_range": (0.3, 0.6),
             "peep_range": (5, 10),
             "pressure_support_range": (8, 20),
         },
         "CPAP": {
-            "modes": ["CPAP"],
+            "modes": ["Pressure Support/CPAP"],
             "fio2_range": (0.3, 0.5),
             "peep_range": (5, 10),
         },

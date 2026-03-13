@@ -37,7 +37,7 @@ class LabsGenerator(BaseGenerator):
             "bicarbonate",
             "bun",
             "creatinine",
-            "glucose",
+            "glucose_serum",
         ],
         "comprehensive_metabolic": [
             "sodium",
@@ -46,8 +46,8 @@ class LabsGenerator(BaseGenerator):
             "bicarbonate",
             "bun",
             "creatinine",
-            "glucose",
-            "calcium",
+            "glucose_serum",
+            "calcium_total",
             "albumin",
             "total_protein",
             "ast",
@@ -55,20 +55,20 @@ class LabsGenerator(BaseGenerator):
             "alkaline_phosphatase",
             "bilirubin_total",
         ],
-        "cbc": ["hemoglobin", "hematocrit", "wbc", "platelets"],
+        "cbc": ["hemoglobin", "wbc", "platelet_count"],
         "coagulation": ["inr", "pt", "ptt"],
-        "abg_arterial": ["ph_arterial", "pco2_arterial", "po2_arterial", "base_excess"],
-        "abg_venous": ["ph_venous", "pco2_venous", "po2_venous", "base_excess"],
+        "abg_arterial": ["ph_arterial", "pco2_arterial", "po2_arterial", "bicarbonate"],
+        "abg_venous": ["ph_venous", "pco2_venous", "so2_central_venous", "bicarbonate"],
         "lactate": ["lactate"],
         "liver": [
             "ast",
             "alt",
             "alkaline_phosphatase",
             "bilirubin_total",
-            "bilirubin_direct",
+            "bilirubin_conjugated",
             "albumin",
         ],
-        "cardiac": ["troponin", "bnp"],
+        "cardiac": ["troponin_i", "procalcitonin"],
         "inflammatory": ["crp", "procalcitonin"],
     }
 
@@ -80,8 +80,8 @@ class LabsGenerator(BaseGenerator):
         "bicarbonate": (24, 3, 10, 40),
         "bun": (15, 8, 5, 100),
         "creatinine": (1.0, 0.5, 0.3, 10.0),
-        "glucose": (110, 40, 40, 500),
-        "calcium": (9.0, 0.6, 6.0, 14.0),
+        "glucose_serum": (110, 40, 40, 500),
+        "calcium_total": (9.0, 0.6, 6.0, 14.0),
         "magnesium": (2.0, 0.3, 1.0, 4.0),
         "phosphate": (3.5, 0.8, 1.5, 8.0),
         "albumin": (3.5, 0.6, 1.5, 5.5),
@@ -90,19 +90,17 @@ class LabsGenerator(BaseGenerator):
         "alt": (30, 20, 10, 500),
         "alkaline_phosphatase": (80, 30, 30, 500),
         "bilirubin_total": (0.8, 0.5, 0.1, 20.0),
-        "bilirubin_direct": (0.2, 0.2, 0, 10.0),
+        "bilirubin_conjugated": (0.2, 0.2, 0, 10.0),
         "lactate": (1.5, 1.0, 0.5, 15.0),
         "hemoglobin": (12, 2, 5, 18),
-        "hematocrit": (38, 5, 15, 55),
         "wbc": (8, 4, 0.5, 50),
-        "platelets": (220, 80, 10, 800),
+        "platelet_count": (220, 80, 10, 800),
         "inr": (1.1, 0.3, 0.8, 10.0),
         "pt": (12, 2, 9, 50),
         "ptt": (30, 5, 20, 120),
         "fibrinogen": (300, 80, 100, 800),
         "d_dimer": (300, 200, 0, 10000),
-        "troponin": (0.02, 0.02, 0, 10),
-        "bnp": (80, 100, 0, 5000),
+        "troponin_i": (0.02, 0.02, 0, 10),
         "crp": (5, 10, 0, 300),
         "procalcitonin": (0.3, 0.5, 0, 50),
         # Arterial blood gas values
@@ -112,9 +110,7 @@ class LabsGenerator(BaseGenerator):
         # Venous blood gas values (slightly different physiology)
         "ph_venous": (7.36, 0.05, 7.0, 7.6),
         "pco2_venous": (46, 5, 25, 85),
-        "po2_venous": (40, 8, 20, 70),
-        "base_excess": (0, 3, -15, 15),
-        "anion_gap": (10, 2, 3, 30),
+        "so2_central_venous": (70, 8, 40, 90),
     }
 
     def generate(
@@ -350,7 +346,7 @@ class LabsGenerator(BaseGenerator):
             if lab_cat in ["ph", "ph_arterial", "ph_venous"]:
                 value_str = f"{value:.2f}"
                 value = round(value, 2)
-            elif lab_cat in ["troponin", "procalcitonin"]:
+            elif lab_cat in ["troponin_i", "troponin_t", "procalcitonin"]:
                 value_str = f"{value:.3f}"
                 value = round(value, 3)
             else:
@@ -381,20 +377,20 @@ class LabsGenerator(BaseGenerator):
         
         Permissible values: blood_gas, bmp, cbc, coags, lft, misc
         """
-        blood_gas_labs = {"ph", "pco2", "po2", "base_excess", "ph_arterial", "ph_venous",
-                          "pco2_arterial", "po2_arterial", "pco2_venous", "so2_arterial",
-                          "so2_mixed_venous", "so2_central_venous"}
+        blood_gas_labs = {"ph_arterial", "ph_venous", "pco2_arterial", "po2_arterial",
+                          "pco2_venous", "so2_arterial", "so2_mixed_venous",
+                          "so2_central_venous"}
         bmp_labs = {"sodium", "potassium", "chloride", "bicarbonate", "bun", "creatinine",
-                    "glucose", "glucose_serum", "glucose_fingerstick", "calcium", "calcium_total",
+                    "glucose_serum", "glucose_fingerstick", "calcium_total",
                     "calcium_ionized", "magnesium", "phosphate"}
-        cbc_labs = {"hemoglobin", "hematocrit", "wbc", "platelets", "platelet_count",
+        cbc_labs = {"hemoglobin", "wbc", "platelet_count",
                     "basophils_percent", "basophils_absolute", "eosinophils_percent",
                     "eosinophils_absolute", "lymphocytes_percent", "lymphocytes_absolute",
                     "monocytes_percent", "monocytes_absolute", "neutrophils_percent",
                     "neutrophils_absolute"}
         coags_labs = {"inr", "pt", "ptt", "fibrinogen", "d_dimer"}
         lft_labs = {"ast", "alt", "alkaline_phosphatase", "bilirubin_total",
-                    "bilirubin_direct", "bilirubin_conjugated", "bilirubin_unconjugated",
+                    "bilirubin_conjugated", "bilirubin_unconjugated",
                     "albumin", "total_protein", "ldh"}
 
         if lab_cat in blood_gas_labs:

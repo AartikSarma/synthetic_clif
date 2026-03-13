@@ -36,9 +36,9 @@ class TestMCIDELoader:
     def test_get_category_location(self, mcide):
         """Test getting location categories."""
         locations = mcide.get_category("location")
-        assert "MICU" in locations
-        assert "Ward" in locations
-        assert "ED" in locations
+        assert "icu" in locations
+        assert "ward" in locations
+        assert "ed" in locations
 
     def test_get_category_respiratory_device(self, mcide):
         """Test getting respiratory device categories."""
