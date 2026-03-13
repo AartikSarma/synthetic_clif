@@ -55,6 +55,10 @@ class ECMOMCSGenerator(BaseGenerator):
 
         if len(df) > 0:
             df["recorded_dttm"] = pd.to_datetime(df["recorded_dttm"], utc=True)
+            # Ensure string columns have correct dtype
+            for col in ["device_name", "device_metric_name"]:
+                if col in df.columns:
+                    df[col] = df[col].astype("string")
 
         return df
 
@@ -68,17 +72,19 @@ class ECMOMCSGenerator(BaseGenerator):
         records = []
         los_hours = (discharge_time - admit_time).total_seconds() / 3600
 
-        # ECMO device type
-        device = self.rng.choice(
-            ["ECMO", "VAD", "IABP", "Impella"],
-            p=[0.5, 0.15, 0.25, 0.1],
-        )
-
-        # Configuration for ECMO
-        if device == "ECMO":
-            config = self.rng.choice(["VV", "VA"], p=[0.6, 0.4])
-        else:
-            config = None
+        # Device categories and their MCS groups per CLIFPy schema
+        # Increased ECMO weights to ensure better coverage of sweep/fdO2 fields
+        device_options = [
+            ("VA_ECMO", "ECMO"),
+            ("VV_ECMO", "ECMO"),
+            ("IABP", "IABP"),
+            ("Impella_CP", "temporary_LVAD"),
+            ("Impella_5.5", "temporary_LVAD"),
+            ("CentriMag_LV", "temporary_LVAD"),
+        ]
+        weights = [0.35, 0.35, 0.10, 0.08, 0.07, 0.05]
+        idx = self.rng.choice(len(device_options), p=weights)
+        device, mcs_group = device_options[idx]
 
         # ECMO start time
         start_time = admit_time + timedelta(
@@ -105,24 +111,26 @@ class ECMOMCSGenerator(BaseGenerator):
             record = {
                 "hospitalization_id": hospitalization_id,
                 "recorded_dttm": ts,
+                "device_name": device.lower(),
                 "device_category": device,
-                "configuration_category": config,
-                "flow_rate": None,
-                "sweep_gas_flow": None,
-                "fio2_set": None,
-                "rpm": None,
+                "mcs_group": mcs_group,
+                "device_metric_name": None,
+                "device_rate": None,
+                "sweep": None,
+                "flow": None,
+                "fdO2": None,
             }
 
-            if device == "ECMO":
-                record["flow_rate"] = round(self.rng.uniform(3, 6), 1)
-                record["sweep_gas_flow"] = round(self.rng.uniform(2, 8), 1)
-                record["fio2_set"] = round(self.rng.uniform(0.5, 1.0), 2)
-                record["rpm"] = round(self.rng.uniform(2500, 4000), 0)
-            elif device == "Impella":
-                record["flow_rate"] = round(self.rng.uniform(2, 5), 1)
-                record["rpm"] = round(self.rng.uniform(30000, 50000), 0)
+            if mcs_group == "ECMO":
+                record["flow"] = round(self.rng.uniform(3, 6), 1)
+                record["sweep"] = round(self.rng.uniform(2, 8), 1)
+                record["fdO2"] = round(self.rng.uniform(0.5, 1.0), 2)
+                record["device_rate"] = round(self.rng.uniform(2500, 4000), 0)
+            elif "Impella" in device or "CentriMag" in device:
+                record["flow"] = round(self.rng.uniform(2, 5), 1)
+                record["device_rate"] = round(self.rng.uniform(30000, 50000), 0)
             elif device == "IABP":
-                record["flow_rate"] = round(self.rng.uniform(0.5, 1.5), 1)
+                record["flow"] = round(self.rng.uniform(0.5, 1.5), 1)
 
             records.append(record)
 

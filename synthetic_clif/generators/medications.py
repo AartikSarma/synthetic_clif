@@ -194,18 +194,21 @@ class MedicationContinuousGenerator(BaseGenerator):
         # Determine which medications this patient receives
         # Vasopressors: ~25% of ICU patients
         if self.rng.random() < 0.25 and los_hours >= 12:
-            # Primary vasopressor (usually norepinephrine)
+            # Primary vasopressor (weighted selection)
+            primary_agents = ["norepinephrine", "phenylephrine", "epinephrine", "dopamine", "dobutamine"]
+            primary_weights = [0.60, 0.11, 0.12, 0.10, 0.07]
+            primary_vaso = self.rng.choice(primary_agents, p=primary_weights)
             records.extend(
                 self._generate_infusion(
                     hospitalization_id,
                     admit_time,
                     discharge_time,
-                    "norepinephrine",
+                    primary_vaso,
                     duration_hours=self._safe_uniform(12, min(72, los_hours)),
                 )
             )
 
-            # Some need second vasopressor
+            # Some need second vasopressor (vasopressin)
             if self.rng.random() < 0.3 and los_hours >= 24:
                 records.extend(
                     self._generate_infusion(
@@ -213,6 +216,20 @@ class MedicationContinuousGenerator(BaseGenerator):
                         admit_time + timedelta(hours=self._safe_uniform(2, min(12, los_hours / 2))),
                         discharge_time,
                         "vasopressin",
+                        duration_hours=self._safe_uniform(12, min(48, los_hours)),
+                    )
+                )
+
+            # Chance of a second primary vasopressor from remaining agents
+            if self.rng.random() < 0.2 and los_hours >= 24:
+                remaining = [a for a in primary_agents if a != primary_vaso]
+                second_vaso = self.rng.choice(remaining)
+                records.extend(
+                    self._generate_infusion(
+                        hospitalization_id,
+                        admit_time + timedelta(hours=self._safe_uniform(2, min(12, los_hours / 2))),
+                        discharge_time,
+                        second_vaso,
                         duration_hours=self._safe_uniform(12, min(48, los_hours)),
                     )
                 )
@@ -316,13 +333,32 @@ class MedicationContinuousGenerator(BaseGenerator):
                     "admin_dttm": ts,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": self._get_med_group_continuous(params["indication"]),
                     "med_dose": round(current_dose, 3),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": "IV",
+                    "med_route_category": "iv",
+                    "mar_action_category": self.rng.choice(
+                        ["dose_change", "going", "start", "stop", "verify"],
+                        p=[0.3, 0.4, 0.1, 0.1, 0.1],
+                    ),
+                    "mar_action_group": "administered",
                 }
             )
 
         return records
+
+    @staticmethod
+    def _get_med_group_continuous(indication: str) -> str:
+        """Map indication to CLIF 2.1.0 med_group."""
+        mapping = {
+            "vasopressor": "vasoactives",
+            "inotrope": "vasoactives",
+            "sedation": "sedation",
+            "analgesia": "sedation",
+            "anticoagulation": "anticoagulation",
+            "glycemic": "endocrine",
+        }
+        return mapping.get(indication, "others")
 
 
 class MedicationIntermittentGenerator(BaseGenerator):
@@ -560,6 +596,9 @@ class MedicationIntermittentGenerator(BaseGenerator):
             # Determine MAR action
             action = self._sample_mar_action()
 
+            mar_group = "administered" if action in ["given", "bolus"] else (
+                "not_administered" if action == "not_given" else "other"
+            )
             records.append(
                 {
                     "hospitalization_id": hospitalization_id,
@@ -567,10 +606,12 @@ class MedicationIntermittentGenerator(BaseGenerator):
                     "admin_dttm": current_time,
                     "med_category": medication,
                     "med_name": medication.replace("_", "-").title(),
+                    "med_group": self._get_med_group_intermittent(params["indication"]),
                     "med_dose": round(dose, 0),
                     "med_dose_unit": params["unit"],
-                    "med_route_category": params["route"],
+                    "med_route_category": params["route"].lower(),
                     "mar_action_category": action,
+                    "mar_action_group": mar_group,
                 }
             )
 
@@ -581,9 +622,19 @@ class MedicationIntermittentGenerator(BaseGenerator):
         return records
 
     def _sample_mar_action(self) -> str:
-        """Sample MAR action with realistic distribution."""
-        # Most doses given, small percentage held/refused
+        """Sample MAR action per CLIF 2.1.0 schema."""
         return self.rng.choice(
-            ["Given", "Held", "Refused", "Not Given"],
-            p=[0.92, 0.04, 0.02, 0.02],
+            ["given", "bolus", "not_given", "other"],
+            p=[0.88, 0.04, 0.06, 0.02],
         )
+
+    @staticmethod
+    def _get_med_group_intermittent(indication: str) -> str:
+        """Map indication to CLIF 2.1.0 med_group for intermittent meds."""
+        mapping = {
+            "antibiotic": "CMS_sepsis_qualifying_antibiotics",
+            "ppi": "other",
+            "cardiac": "other",
+            "prophylaxis": "other",
+        }
+        return mapping.get(indication, "other")

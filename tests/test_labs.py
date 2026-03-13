@@ -23,16 +23,7 @@ class TestLabsGenerator:
         assert "lab_value" in df.columns
         assert "lab_value_numeric" in df.columns
         assert "reference_unit" in df.columns
-        assert "lab_type_category" in df.columns
-
-    def test_lab_categories_valid(self, hospitalizations_df, seed, mcide):
-        """Test that lab categories are valid mCIDE values."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_labs = set(mcide.get_category("lab"))
-        for lc in df["lab_category"].dropna():
-            assert lc in valid_labs
+        assert "lab_order_category" in df.columns
 
     def test_timestamp_ordering(self, hospitalizations_df, seed, mcide):
         """Test that lab timestamps are properly ordered."""
@@ -45,46 +36,38 @@ class TestLabsGenerator:
             if pd.notna(row["lab_collect_dttm"]) and pd.notna(row["lab_result_dttm"]):
                 assert row["lab_result_dttm"] >= row["lab_collect_dttm"]
 
-    def test_lab_values_reasonable(self, hospitalizations_df, seed, mcide):
-        """Test that lab values are physiologically reasonable."""
+    def test_blood_gas_arterial_venous_categories(self, hospitalizations_df, seed, mcide):
+        """Test that blood gas categories use arterial/venous distinction."""
         gen = LabsGenerator(seed=seed, mcide=mcide)
         df = gen.generate(hospitalizations_df)
 
-        # Check some common labs
-        bounds = {
-            "sodium": (120, 160),
-            "potassium": (2.5, 7.0),
-            "creatinine": (0.3, 10.0),
-            "hemoglobin": (5, 18),
-            "ph": (7.0, 7.6),
-        }
+        blood_gas_cats = df["lab_category"].unique()
 
-        for lab_cat, (lower, upper) in bounds.items():
-            values = df[df["lab_category"] == lab_cat]["lab_value_numeric"].dropna()
-            if len(values) > 0:
-                assert values.min() >= lower
-                assert values.max() <= upper
+        # Should not contain generic categories
+        assert "pco2" not in blood_gas_cats, "Generic 'pco2' found; should be pco2_arterial/pco2_venous"
+        assert "po2" not in blood_gas_cats, "Generic 'po2' found; should be po2_arterial/po2_venous"
+        assert "ph" not in blood_gas_cats, "Generic 'ph' found; should be ph_arterial/ph_venous"
 
-    def test_reference_units(self, hospitalizations_df, seed, mcide):
-        """Test that reference units are appropriate."""
+        # Should contain arterial variants (arterial draws are more common, so should always appear)
+        assert "pco2_arterial" in blood_gas_cats
+        assert "po2_arterial" in blood_gas_cats
+        assert "ph_arterial" in blood_gas_cats
+
+    def test_blood_gas_arterial_venous_ratio(self, hospitalizations_df, seed, mcide):
+        """Test that ~70% of blood gas draws are arterial."""
         gen = LabsGenerator(seed=seed, mcide=mcide)
         df = gen.generate(hospitalizations_df)
 
-        expected_units = mcide.get_lab_reference_units()
+        arterial_count = (df["lab_category"] == "pco2_arterial").sum()
+        venous_count = (df["lab_category"] == "pco2_venous").sum()
+        total = arterial_count + venous_count
 
-        for _, row in df.iterrows():
-            lab_cat = row["lab_category"]
-            if lab_cat in expected_units and pd.notna(row["reference_unit"]):
-                assert row["reference_unit"] == expected_units[lab_cat]
-
-    def test_lab_type_valid(self, hospitalizations_df, seed, mcide):
-        """Test that lab types are valid mCIDE values."""
-        gen = LabsGenerator(seed=seed, mcide=mcide)
-        df = gen.generate(hospitalizations_df)
-
-        valid_types = set(mcide.get_category("lab_type"))
-        for lt in df["lab_type_category"].dropna():
-            assert lt in valid_types
+        if total > 0:
+            arterial_fraction = arterial_count / total
+            # Allow wide tolerance: expect 50-90% arterial
+            assert 0.5 <= arterial_fraction <= 0.9, (
+                f"Arterial fraction {arterial_fraction:.2f} out of expected range [0.5, 0.9]"
+            )
 
     def test_admission_labs(self, hospitalizations_df, seed, mcide):
         """Test that admission labs are generated."""

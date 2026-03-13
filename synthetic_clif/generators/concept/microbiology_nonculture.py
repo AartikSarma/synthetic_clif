@@ -18,28 +18,39 @@ class MicrobiologyNoncultureGenerator(BaseGenerator):
         "COVID-19 PCR": {
             "probability": 0.8,
             "positive_rate": 0.15,
+            "organism_category": "sars_cov2",
+            "fluid_category": "nasopharynx_upperairway",
         },
         "Influenza PCR": {
             "probability": 0.4,
             "positive_rate": 0.10,
+            "organism_category": "respiratory_syncytial_virus",
+            "fluid_category": "nasopharynx_upperairway",
         },
         "RSV PCR": {
             "probability": 0.2,
             "positive_rate": 0.08,
+            "organism_category": "respiratory_syncytial_virus",
+            "fluid_category": "nasopharynx_upperairway",
         },
         "Respiratory Viral Panel": {
             "probability": 0.3,
             "positive_rate": 0.25,
+            "organism_category": "sars_cov2",
+            "fluid_category": "respiratory_tract",
         },
         "C. diff Toxin": {
             "probability": 0.25,
             "positive_rate": 0.12,
+            "organism_category": "clostridium_difficile",
+            "fluid_category": "feces_stool",
         },
     }
 
     def generate(
         self,
         hospitalizations_df: pd.DataFrame,
+        **kwargs,
     ) -> pd.DataFrame:
         """Generate non-culture microbiology data.
 
@@ -76,18 +87,21 @@ class MicrobiologyNoncultureGenerator(BaseGenerator):
 
                 # Result
                 is_positive = self.rng.random() < params["positive_rate"]
-                result_cat = "Positive" if is_positive else "Negative"
+                result_cat = "detected" if is_positive else "not_detected"
+                organism = params["organism_category"]
 
                 records.append(
                     {
+                        "patient_id": hosp.get("patient_id", ""),
                         "hospitalization_id": hosp_id,
                         "order_dttm": order_time,
                         "collect_dttm": collect_time,
                         "result_dttm": result_time,
-                        "test_category": test_name,
-                        "test_name": test_name,
+                        "fluid_category": params["fluid_category"],
+                        "method_category": "pcr",
+                        "organism_category": organism,
+                        "organism_group": organism,
                         "result_category": result_cat,
-                        "result_value": result_cat,
                     }
                 )
 
