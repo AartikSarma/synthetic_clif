@@ -194,83 +194,40 @@ class HospitalizationGenerator(BaseGenerator):
         # Sort chronologically for same patient
         return sorted(admission_times)
 
-    # CLIF 2.1.0 permissible values
+    # CLIF 2.1.0 schema permissible values
     ADMISSION_TYPE_CATEGORIES = ["ed", "facility", "osh", "direct", "elective", "other"]
-    # Consortium aggregate: ED 65.2%, Facility 3.3%, OSH 14.5%, Direct 5.8%,
-    # Elective 7.9%, Other 2.5%
-    ADMISSION_TYPE_WEIGHTS = [0.652, 0.033, 0.145, 0.058, 0.079, 0.025]
-
     DISCHARGE_CATEGORIES = [
-        "Home", "Home Health", "SNF", "Expired", "Rehab",
-        "Hospice", "LTACH", "Acute Care Hospital",
-        "AMA", "Left AMA",
-        "Psych", "Jail", "Homeless",
-        "Still In", "Unknown", "Other", "Other Facility",
+        "Home",
+        "Skilled Nursing Facility (SNF)",
+        "Expired",
+        "Acute Inpatient Rehab Facility",
+        "Hospice",
+        "Long Term Care Hospital (LTACH)",
+        "Acute Care Hospital",
+        "Group Home",
+        "Chemical Dependency",
+        "Against Medical Advice (AMA)",
+        "Assisted Living",
+        "Still Admitted",
+        "Missing",
+        "Other",
+        "Psychiatric Hospital",
+        "Shelter",
+        "Jail",
     ]
 
     def _sample_admission_type(self) -> str:
-        """Sample admission type per CLIF 2.1.0 schema."""
-        weights = np.array(self.ADMISSION_TYPE_WEIGHTS, dtype=float)
+        """Sample admission type with realistic weights per CLIF 2.1.0 schema."""
+        weights = [0.50, 0.10, 0.10, 0.15, 0.10, 0.05]  # ed, facility, osh, direct, elective, other
+        weights = np.array(weights, dtype=float)
         weights /= weights.sum()
         return self.rng.choice(self.ADMISSION_TYPE_CATEGORIES, p=weights)
 
-    # Mapping from discharge_category to realistic discharge_name values
-    DISCHARGE_NAME_MAP = {
-        "Home": [
-            "discharged to home", "discharged home", "home",
-            "discharged to home or self care",
-        ],
-        "Home Health": [
-            "discharged to home with home health",
-            "home with home health services",
-        ],
-        "SNF": [
-            "skilled nursing facility", "discharged to snf",
-            "discharged to skilled nursing facility",
-        ],
-        "Expired": ["expired", "died", "deceased"],
-        "Rehab": [
-            "acute rehabilitation", "discharged to rehab",
-            "inpatient rehabilitation facility",
-        ],
-        "Hospice": [
-            "hospice - home", "hospice - facility",
-            "discharged to hospice",
-        ],
-        "LTACH": [
-            "long term acute care hospital", "discharged to ltach",
-        ],
-        "Acute Care Hospital": [
-            "transferred to another acute care hospital",
-            "transfer to acute care hospital",
-        ],
-        "AMA": ["left against medical advice", "ama"],
-        "Left AMA": ["left against medical advice", "ama"],
-        "Psych": [
-            "psychiatric facility", "discharged to psych",
-        ],
-        "Jail": ["correctional facility", "discharged to jail"],
-        "Homeless": ["homeless shelter", "homeless"],
-        "Still In": ["still hospitalized", "still in"],
-        "Unknown": ["unknown", "not documented"],
-        "Other": ["other", "other disposition"],
-        "Other Facility": ["other facility", "other healthcare facility"],
-    }
-
-    def _get_discharge_name(self, category: str) -> str:
-        """Get a realistic discharge name for a discharge category."""
-        names = self.DISCHARGE_NAME_MAP.get(category, ["other"])
-        return self.rng.choice(names)
-
     def _sample_discharge_category(self) -> str:
         """Sample non-death discharge category per CLIF 2.1.0 schema."""
-        non_expired = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
-        # 16 weights for 16 non-Expired categories
-        weights = np.array([
-            0.55, 0.03, 0.12, 0.05, 0.05,
-            0.03, 0.02, 0.02, 0.01, 0.01,
-            0.01, 0.005, 0.04, 0.005, 0.005, 0.005,
-        ], dtype=float)
-        weights = weights[:len(non_expired)]
+        # Weights for non-expired discharges (excluding "Expired" at index 2)
+        non_expired_cats = [c for c in self.DISCHARGE_CATEGORIES if c != "Expired"]
+        weights = [0.55, 0.12, 0.05, 0.05, 0.03, 0.02, 0.02, 0.01, 0.04, 0.03, 0.01, 0.04, 0.02, 0.005, 0.005]
+        weights = np.array(weights[:len(non_expired_cats)], dtype=float)
         weights /= weights.sum()
-        return self.rng.choice(non_expired, p=weights)
+        return self.rng.choice(non_expired_cats, p=weights)

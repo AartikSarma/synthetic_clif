@@ -78,6 +78,25 @@ class ADTGenerator(BaseGenerator):
     ]
     LOCATION_TYPE_WEIGHTS = [0.25, 0.15, 0.05, 0.05, 0.15, 0.02, 0.08, 0.05, 0.05, 0.15]
 
+    # Hospital types per CLIF 2.1.0 schema
+    HOSPITAL_TYPES = ["academic", "community", "LTACH"]
+    HOSPITAL_TYPE_WEIGHTS = [0.6, 0.35, 0.05]
+
+    # Location types per CLIF 2.1.0 schema (for ICU locations)
+    LOCATION_TYPES = [
+        "general_icu",
+        "cardiac_icu",
+        "cardiothoracic_surgical_icu",
+        "mixed_cardiothoracic_icu",
+        "surgical_icu",
+        "burn_icu",
+        "neuro_icu",
+        "neurosurgical_icu",
+        "mixed_neuro_icu",
+        "medical_icu",
+    ]
+    LOCATION_TYPE_WEIGHTS = [0.25, 0.15, 0.05, 0.05, 0.15, 0.02, 0.08, 0.05, 0.05, 0.15]
+
     def generate(
         self,
         hospitalizations_df: pd.DataFrame,
@@ -151,6 +170,7 @@ class ADTGenerator(BaseGenerator):
 
         if total_hours <= 0:
             location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+            location_name = location_type.replace("_", " ").title().replace("Icu", "ICU")
             return [
                 {
                     "hospitalization_id": hospitalization_id,
@@ -158,6 +178,7 @@ class ADTGenerator(BaseGenerator):
                     "hospital_type": hospital_type,
                     "in_dttm": admit_time,
                     "out_dttm": discharge_time,
+                    "location_name": location_name,
                     "location_category": "icu",
                     "location_type": location_type,
                 }
@@ -204,12 +225,22 @@ class ADTGenerator(BaseGenerator):
                 end_time += timedelta(hours=jitter_hours)
                 end_time = min(end_time, discharge_time)
 
-            # Determine location_type (only meaningful for ICU)
+            # Determine location_type and location_name
             if location == "icu":
                 location_type = self.rng.choice(self.LOCATION_TYPES, p=self.LOCATION_TYPE_WEIGHTS)
+                location_name = location_type.replace("_", " ").title().replace("Icu", "ICU")
+            elif location == "ed":
+                location_type = "general_icu"  # placeholder, schema requires a value
+                location_name = "Emergency Department"
+            elif location == "stepdown":
+                location_type = "general_icu"  # placeholder
+                location_name = "Stepdown Unit"
+            elif location == "ward":
+                location_type = "general_icu"  # placeholder
+                location_name = self.rng.choice(["Medical Ward", "Surgical Ward", "General Ward"])
             else:
-                # For non-ICU, use general_icu as placeholder (schema requires a value)
                 location_type = "general_icu"
+                location_name = location.title()
 
             events.append(
                 {
@@ -218,7 +249,7 @@ class ADTGenerator(BaseGenerator):
                     "hospital_type": hospital_type,
                     "in_dttm": current_time,
                     "out_dttm": end_time,
-                    "location_name": loc_name,
+                    "location_name": location_name,
                     "location_category": location,
                     "location_type": location_type,
                 }

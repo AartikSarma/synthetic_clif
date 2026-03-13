@@ -87,7 +87,7 @@ class PatientGenerator(BaseGenerator):
         ethnicity_weights = [0.058, 0.867, 0.074]
         ethnicity_categories = self.sample_category("ethnicity", n_patients, ethnicity_weights)
 
-        # Generate language categories per CLIF 2.1.0 schema
+        # Generate language categories
         language_weights = np.array(self.LANGUAGE_WEIGHTS[:len(self.LANGUAGE_CATEGORIES)], dtype=float)
         language_weights /= language_weights.sum()
         language_categories = self.rng.choice(
