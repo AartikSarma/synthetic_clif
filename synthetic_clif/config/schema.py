@@ -132,7 +132,7 @@ class CLIFSchema:
             ColumnSchema("pressure_support_set", "float64"),
             ColumnSchema("flow_rate_set", "float64"),
             ColumnSchema("peak_inspiratory_pressure", "float64"),
-            ColumnSchema("plateau_pressure", "float64"),
+            ColumnSchema("plateau_pressure_obs", "float64"),
             ColumnSchema("peep_set", "float64"),
             ColumnSchema("ve_delivered", "float64"),
             ColumnSchema("tracheostomy", "boolean"),
