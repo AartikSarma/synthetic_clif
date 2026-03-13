@@ -57,7 +57,8 @@ class LabsGenerator(BaseGenerator):
         ],
         "cbc": ["hemoglobin", "hematocrit", "wbc", "platelets"],
         "coagulation": ["inr", "pt", "ptt"],
-        "abg": ["ph", "pco2", "po2", "base_excess"],
+        "abg_arterial": ["ph_arterial", "pco2_arterial", "po2_arterial", "base_excess"],
+        "abg_venous": ["ph_venous", "pco2_venous", "po2_venous", "base_excess"],
         "lactate": ["lactate"],
         "liver": [
             "ast",
@@ -104,9 +105,14 @@ class LabsGenerator(BaseGenerator):
         "bnp": (80, 100, 0, 5000),
         "crp": (5, 10, 0, 300),
         "procalcitonin": (0.3, 0.5, 0, 50),
-        "ph": (7.40, 0.05, 7.0, 7.6),
-        "pco2": (40, 5, 20, 80),
-        "po2": (85, 15, 40, 500),
+        # Arterial blood gas values
+        "ph_arterial": (7.40, 0.05, 7.0, 7.6),
+        "pco2_arterial": (40, 5, 20, 80),
+        "po2_arterial": (85, 15, 40, 500),
+        # Venous blood gas values (slightly different physiology)
+        "ph_venous": (7.36, 0.05, 7.0, 7.6),
+        "pco2_venous": (46, 5, 25, 85),
+        "po2_venous": (40, 8, 20, 70),
         "base_excess": (0, 3, -15, 15),
         "anion_gap": (10, 2, 3, 30),
     }
@@ -147,6 +153,8 @@ class LabsGenerator(BaseGenerator):
         df = pd.DataFrame(records)
 
         if len(df) > 0:
+            # Add lab_name as lowercase version of lab_category
+            df["lab_name"] = df["lab_category"].str.lower()
             df["lab_order_dttm"] = pd.to_datetime(df["lab_order_dttm"], utc=True)
             df["lab_collect_dttm"] = pd.to_datetime(df["lab_collect_dttm"], utc=True)
             df["lab_result_dttm"] = pd.to_datetime(df["lab_result_dttm"], utc=True)
@@ -211,7 +219,11 @@ class LabsGenerator(BaseGenerator):
         n_prn = int(los_days * self.rng.uniform(0.5, 2))
         for _ in range(n_prn):
             prn_time = admit_time + timedelta(hours=self.rng.uniform(0, los_hours))
-            panel = self.rng.choice(["lactate", "abg", "coagulation", "cardiac"])
+            # 70% arterial, 30% venous blood gas draws (ICU practice)
+            abg_panel = self.rng.choice(
+                ["abg_arterial", "abg_venous"], p=[0.7, 0.3]
+            )
+            panel = self.rng.choice(["lactate", abg_panel, "coagulation", "cardiac"])
             lab_type = self.rng.choice(["STAT", "Point of Care"], p=[0.7, 0.3])
 
             records.extend(
@@ -264,13 +276,16 @@ class LabsGenerator(BaseGenerator):
             )
         )
 
-        # ABG (for ICU admits, ~50%)
+        # ABG (for ICU admits, ~50%); 70% arterial, 30% venous
         if self.rng.random() < 0.5:
+            abg_panel = self.rng.choice(
+                ["abg_arterial", "abg_venous"], p=[0.7, 0.3]
+            )
             records.extend(
                 self._generate_panel(
                     hospitalization_id,
                     admit_time + timedelta(minutes=10),
-                    "abg",
+                    abg_panel,
                     "STAT",
                     reference_units,
                 )
@@ -289,6 +304,20 @@ class LabsGenerator(BaseGenerator):
 
         return records
 
+    # Map panel names to CLIF 2.1.0 lab_order_category values
+    PANEL_TO_ORDER_CATEGORY = {
+        "basic_metabolic": "bmp",
+        "comprehensive_metabolic": "bmp",
+        "cbc": "cbc",
+        "coagulation": "coags",
+        "abg_arterial": "blood_gas",
+        "abg_venous": "blood_gas",
+        "lactate": "blood_gas",
+        "liver": "lft",
+        "cardiac": "misc",
+        "inflammatory": "misc",
+    }
+
     def _generate_panel(
         self,
         hospitalization_id: str,
@@ -300,6 +329,7 @@ class LabsGenerator(BaseGenerator):
         """Generate a lab panel."""
         records = []
         labs = self.LAB_PANELS.get(panel_name, [panel_name])
+        order_category = self.PANEL_TO_ORDER_CATEGORY.get(panel_name, "misc")
 
         # Generate ordered timestamps: order -> collect -> result
         collect_delay = int(self.rng.integers(5, 30))  # minutes
@@ -317,7 +347,7 @@ class LabsGenerator(BaseGenerator):
             value = np.clip(value, lower, upper)
 
             # Format value string
-            if lab_cat in ["ph"]:
+            if lab_cat in ["ph", "ph_arterial", "ph_venous"]:
                 value_str = f"{value:.2f}"
                 value = round(value, 2)
             elif lab_cat in ["troponin", "procalcitonin"]:

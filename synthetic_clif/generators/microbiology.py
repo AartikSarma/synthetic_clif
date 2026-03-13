@@ -20,74 +20,77 @@ class MicrobiologyCultureGenerator(BaseGenerator):
     - Proper timestamp ordering: order < collect < result
     """
 
-    # Organism probabilities by fluid type
+    # Organism probabilities by fluid type (CLIF 2.1.0 snake_case values)
     ORGANISM_BY_FLUID = {
-        "Blood": {
+        "blood_buffy": {
             "organisms": [
-                "Staphylococcus aureus",
-                "MRSA",
-                "Escherichia coli",
-                "Klebsiella pneumoniae",
-                "Enterococcus faecalis",
-                "Candida albicans",
-                "Pseudomonas aeruginosa",
-                "No Growth",
+                "staphylococcus_aureus",
+                "escherichia_coli",
+                "klebsiella_pneumoniae",
+                "enterococcus_faecalis",
+                "candida_albicans",
+                "pseudomonas_aeruginosa",
+                "no_growth",
             ],
-            "weights": [0.12, 0.08, 0.15, 0.10, 0.08, 0.05, 0.07, 0.35],
+            "weights": [0.20, 0.15, 0.10, 0.08, 0.05, 0.07, 0.35],
         },
-        "Urine": {
+        "genito_urinary_tract": {
             "organisms": [
-                "Escherichia coli",
-                "Klebsiella pneumoniae",
-                "Enterococcus faecalis",
-                "Pseudomonas aeruginosa",
-                "Proteus mirabilis",
-                "Candida albicans",
-                "No Growth",
+                "escherichia_coli",
+                "klebsiella_pneumoniae",
+                "enterococcus_faecalis",
+                "pseudomonas_aeruginosa",
+                "proteus_mirabilis",
+                "candida_albicans",
+                "no_growth",
             ],
             "weights": [0.30, 0.12, 0.10, 0.08, 0.08, 0.07, 0.25],
         },
-        "Respiratory": {
+        "respiratory_tract": {
             "organisms": [
-                "Staphylococcus aureus",
-                "MRSA",
-                "Pseudomonas aeruginosa",
-                "Klebsiella pneumoniae",
-                "Acinetobacter baumannii",
-                "Streptococcus pneumoniae",
-                "No Growth",
+                "staphylococcus_aureus",
+                "pseudomonas_aeruginosa",
+                "klebsiella_pneumoniae",
+                "acinetobacter_baumannii",
+                "streptococcus_pneumoniae",
+                "no_growth",
             ],
-            "weights": [0.15, 0.10, 0.18, 0.12, 0.08, 0.10, 0.27],
+            "weights": [0.25, 0.18, 0.12, 0.08, 0.10, 0.27],
         },
-        "Wound": {
+        "woundsite": {
             "organisms": [
-                "Staphylococcus aureus",
-                "MRSA",
-                "Pseudomonas aeruginosa",
-                "Escherichia coli",
-                "Enterobacter cloacae",
-                "No Growth",
+                "staphylococcus_aureus",
+                "pseudomonas_aeruginosa",
+                "escherichia_coli",
+                "enterobacter_cloacae",
+                "no_growth",
             ],
-            "weights": [0.20, 0.15, 0.15, 0.12, 0.08, 0.30],
+            "weights": [0.35, 0.15, 0.12, 0.08, 0.30],
         },
     }
 
-    # Organism to group mapping
+    # CLIF 2.1.0 fluid categories for sampling
+    FLUID_CATEGORIES = ["blood_buffy", "genito_urinary_tract", "respiratory_tract", "woundsite"]
+    FLUID_WEIGHTS = [0.4, 0.3, 0.2, 0.1]
+
+    # Organism to group mapping (CLIF 2.1.0 organism_group values)
     ORGANISM_GROUPS = {
-        "Staphylococcus aureus": "Gram Positive",
-        "MRSA": "Gram Positive",
-        "Escherichia coli": "Gram Negative",
-        "Klebsiella pneumoniae": "Gram Negative",
-        "Pseudomonas aeruginosa": "Gram Negative",
-        "Enterococcus faecalis": "Gram Positive",
-        "Enterococcus faecium": "Gram Positive",
-        "Candida albicans": "Fungal",
-        "Candida glabrata": "Fungal",
-        "Acinetobacter baumannii": "Gram Negative",
-        "Streptococcus pneumoniae": "Gram Positive",
-        "Enterobacter cloacae": "Gram Negative",
-        "Proteus mirabilis": "Gram Negative",
+        "staphylococcus_aureus": "staphylococcus_coag_pos",
+        "escherichia_coli": "escherichia",
+        "klebsiella_pneumoniae": "klebsiella",
+        "pseudomonas_aeruginosa": "pseudomonas_wo_cepacia_maltophilia",
+        "enterococcus_faecalis": "enterococcus",
+        "enterococcus_faecium": "enterococcus",
+        "candida_albicans": "candida_albicans",
+        "candida_glabrata": "candida_nos",
+        "acinetobacter_baumannii": "acinetobacter",
+        "streptococcus_pneumoniae": "streptococcus",
+        "enterobacter_cloacae": "enterobacter",
+        "proteus_mirabilis": "other_organism",
     }
+
+    METHOD_CATEGORIES = ["culture", "gram_stain", "smear"]
+    METHOD_WEIGHTS = [0.80, 0.15, 0.05]
 
     def generate(
         self,
@@ -109,6 +112,7 @@ class MicrobiologyCultureGenerator(BaseGenerator):
 
         for _, hosp in hospitalizations_df.iterrows():
             hosp_id = hosp["hospitalization_id"]
+            patient_id = hosp.get("patient_id", hosp_id)
             admit_time = hosp["admission_dttm"]
             discharge_time = hosp["discharge_dttm"]
 
@@ -123,7 +127,7 @@ class MicrobiologyCultureGenerator(BaseGenerator):
                 continue
 
             hosp_cultures = self._generate_hospitalization_cultures(
-                hosp_id, admit_time, discharge_time, positive_rate
+                hosp_id, patient_id, admit_time, discharge_time, positive_rate
             )
             records.extend(hosp_cultures)
 
@@ -139,6 +143,7 @@ class MicrobiologyCultureGenerator(BaseGenerator):
     def _generate_hospitalization_cultures(
         self,
         hospitalization_id: str,
+        patient_id: str,
         admit_time: datetime,
         discharge_time: datetime,
         positive_rate: float,
@@ -158,10 +163,10 @@ class MicrobiologyCultureGenerator(BaseGenerator):
             if order_time >= discharge_time:
                 continue
 
-            # Sample fluid type
+            # Sample fluid type (CLIF 2.1.0 categories)
             fluid = self.rng.choice(
-                ["Blood", "Urine", "Respiratory", "Wound"],
-                p=[0.4, 0.3, 0.2, 0.1],
+                self.FLUID_CATEGORIES,
+                p=self.FLUID_WEIGHTS,
             )
 
             # Generate culture ID
@@ -171,11 +176,11 @@ class MicrobiologyCultureGenerator(BaseGenerator):
             is_positive = self.rng.random() < positive_rate
             if is_positive:
                 organism_data = self.ORGANISM_BY_FLUID.get(
-                    fluid, self.ORGANISM_BY_FLUID["Blood"]
+                    fluid, self.ORGANISM_BY_FLUID["blood_buffy"]
                 )
-                # Exclude "No Growth" for positive cultures
+                # Exclude "no_growth" for positive cultures
                 organisms = [
-                    o for o in organism_data["organisms"] if o != "No Growth"
+                    o for o in organism_data["organisms"] if o != "no_growth"
                 ]
                 weights = organism_data["weights"][:-1]
                 weights = np.array(weights) / sum(weights)
@@ -183,9 +188,9 @@ class MicrobiologyCultureGenerator(BaseGenerator):
                 organism_id = str(uuid.uuid4())[:8]
                 organism_group = self.ORGANISM_GROUPS.get(organism, "Other")
             else:
-                organism = "No Growth"
+                organism = "no_growth"
                 organism_id = None
-                organism_group = None
+                organism_group = "no_growth"
 
             # Generate timestamps
             collect_delay = int(self.rng.integers(15, 60))  # minutes
@@ -194,16 +199,20 @@ class MicrobiologyCultureGenerator(BaseGenerator):
             collect_time = order_time + timedelta(minutes=collect_delay)
             result_time = collect_time + timedelta(hours=result_delay)
 
+            method = self.rng.choice(
+                self.METHOD_CATEGORIES, p=self.METHOD_WEIGHTS
+            )
             records.append(
                 {
+                    "patient_id": patient_id,
                     "hospitalization_id": hospitalization_id,
-                    "culture_id": culture_id,
+                    "organism_id": organism_id if organism_id else culture_id,
                     "order_dttm": order_time,
                     "collect_dttm": collect_time,
                     "result_dttm": result_time,
                     "fluid_category": fluid,
-                    "organism_id": organism_id,
-                    "organism_category": organism if organism != "No Growth" else None,
+                    "method_category": method,
+                    "organism_category": organism if organism != "no_growth" else "no_growth",
                     "organism_group": organism_group,
                 }
             )
@@ -219,17 +228,13 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
     - Realistic resistance patterns
     """
 
-    # Susceptibility patterns by organism
+    # Susceptibility patterns by organism (CLIF 2.1.0 snake_case names)
     SUSCEPTIBILITY_PATTERNS = {
-        "Staphylococcus aureus": {
+        "staphylococcus_aureus": {
             "antibiotics": ["Oxacillin", "Vancomycin", "Daptomycin", "Linezolid"],
             "susceptible_rates": [0.7, 1.0, 0.98, 0.99],
         },
-        "MRSA": {
-            "antibiotics": ["Oxacillin", "Vancomycin", "Daptomycin", "Linezolid"],
-            "susceptible_rates": [0.0, 0.99, 0.95, 0.98],
-        },
-        "Escherichia coli": {
+        "escherichia_coli": {
             "antibiotics": [
                 "Ampicillin",
                 "Ceftriaxone",
@@ -239,7 +244,7 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
             ],
             "susceptible_rates": [0.5, 0.85, 0.75, 0.98, 0.90],
         },
-        "Klebsiella pneumoniae": {
+        "klebsiella_pneumoniae": {
             "antibiotics": [
                 "Ampicillin",
                 "Ceftriaxone",
@@ -249,7 +254,7 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
             ],
             "susceptible_rates": [0.0, 0.80, 0.85, 0.95, 0.85],
         },
-        "Pseudomonas aeruginosa": {
+        "pseudomonas_aeruginosa": {
             "antibiotics": [
                 "Cefepime",
                 "Ciprofloxacin",
@@ -259,13 +264,23 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
             ],
             "susceptible_rates": [0.85, 0.80, 0.85, 0.88, 0.90],
         },
-        "Enterococcus faecalis": {
+        "enterococcus_faecalis": {
             "antibiotics": ["Ampicillin", "Vancomycin", "Daptomycin", "Linezolid"],
             "susceptible_rates": [0.95, 0.95, 0.98, 0.99],
         },
-        "Enterococcus faecium": {
+        "enterococcus_faecium": {
             "antibiotics": ["Ampicillin", "Vancomycin", "Daptomycin", "Linezolid"],
             "susceptible_rates": [0.1, 0.70, 0.95, 0.98],
+        },
+        "acinetobacter_baumannii": {
+            "antibiotics": [
+                "Ampicillin-Sulbactam",
+                "Meropenem",
+                "Ciprofloxacin",
+                "Gentamicin",
+                "Colistin",
+            ],
+            "susceptible_rates": [0.60, 0.70, 0.50, 0.75, 0.95],
         },
     }
 
@@ -301,31 +316,20 @@ class MicrobiologySusceptibilityGenerator(BaseGenerator):
             for abx, sus_rate in zip(
                 pattern["antibiotics"], pattern["susceptible_rates"]
             ):
-                # Determine susceptibility
+                # Determine susceptibility (CLIF 2.1.0 values)
                 if self.rng.random() < sus_rate:
-                    susceptibility = "Susceptible"
+                    susceptibility = "susceptible"
                 elif self.rng.random() < 0.3:
-                    susceptibility = "Intermediate"
+                    susceptibility = "intermediate"
                 else:
-                    susceptibility = "Resistant"
-
-                # Generate MIC value (optional)
-                mic_value = None
-                if self.rng.random() < 0.7:
-                    if susceptibility == "Susceptible":
-                        mic_value = f"<={self.rng.choice([0.5, 1, 2, 4])}"
-                    elif susceptibility == "Intermediate":
-                        mic_value = f"{self.rng.choice([4, 8, 16])}"
-                    else:
-                        mic_value = f">={self.rng.choice([16, 32, 64])}"
+                    susceptibility = "non_susceptible"
 
                 records.append(
                     {
                         "organism_id": organism_id,
-                        "antibiotic_name": abx,
-                        "antibiotic_category": abx,
+                        "antimicrobial_name": abx,
+                        "antimicrobial_category": abx.lower().replace("-", "_").replace(" ", "_"),
                         "susceptibility_category": susceptibility,
-                        "mic_value": mic_value,
                     }
                 )
 

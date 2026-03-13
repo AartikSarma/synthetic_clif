@@ -29,6 +29,9 @@ Examples:
 
   # Output as CSV instead of parquet
   python -m synthetic_clif --output data/ --format csv
+
+  # Generate with 4 parallel workers (speeds up large datasets)
+  python -m synthetic_clif --hospitalizations 10000 --output data/ -w 4
         """,
     )
 
@@ -84,6 +87,13 @@ Examples:
         help="Skip generating concept tables (draft status)",
     )
     parser.add_argument(
+        "--workers",
+        "-w",
+        type=int,
+        default=1,
+        help="Number of parallel workers for generation (default: 1, sequential)",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -115,6 +125,7 @@ Examples:
         seed=args.seed,
         mcide_dir=mcide_dir,
         include_concept_tables=not args.no_concept_tables,
+        workers=args.workers,
     )
 
     # Generate dataset
