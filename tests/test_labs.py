@@ -69,6 +69,16 @@ class TestLabsGenerator:
                 f"Arterial fraction {arterial_fraction:.2f} out of expected range [0.5, 0.9]"
             )
 
+    def test_platelet_count_category(self, hospitalizations_df, seed, mcide):
+        """Test that platelet_count (not 'platelets') is used per CLIF spec."""
+        gen = LabsGenerator(seed=seed, mcide=mcide)
+        df = gen.generate(hospitalizations_df)
+
+        lab_cats = df["lab_category"].unique()
+
+        assert "platelets" not in lab_cats, "Non-standard 'platelets' found; should be 'platelet_count'"
+        assert "platelet_count" in lab_cats, "Expected 'platelet_count' per CLIF 2.1.0 spec"
+
     def test_admission_labs(self, hospitalizations_df, seed, mcide):
         """Test that admission labs are generated."""
         gen = LabsGenerator(seed=seed, mcide=mcide)
