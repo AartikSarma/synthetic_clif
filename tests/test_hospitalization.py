@@ -77,3 +77,17 @@ class TestHospitalizationGenerator:
 
         hosp_counts = df.groupby("patient_id").size()
         assert hosp_counts.max() > 1  # At least one patient has multiple
+
+    def test_mortality_nonzero(self, seed, mcide):
+        """Test that Expired discharge category appears for patients with death dates."""
+        from synthetic_clif.generators.patient import PatientGenerator
+
+        pt_gen = PatientGenerator(seed=seed, mcide=mcide)
+        patients = pt_gen.generate(n_patients=200, mortality_rate=0.20)
+
+        gen = HospitalizationGenerator(seed=seed, mcide=mcide)
+        df = gen.generate(patients, n_hospitalizations=300)
+
+        assert (df["discharge_category"] == "Expired").any(), (
+            "Expected at least one 'Expired' discharge but found none"
+        )

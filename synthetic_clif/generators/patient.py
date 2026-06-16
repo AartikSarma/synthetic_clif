@@ -9,6 +9,7 @@ from faker import Faker
 
 from synthetic_clif.generators.base import BaseGenerator
 from synthetic_clif.config.mcide import MCIDELoader
+from synthetic_clif.generators.hospitalization import CLIF_DATE_START, CLIF_DATE_END
 
 
 class PatientGenerator(BaseGenerator):
@@ -106,10 +107,10 @@ class PatientGenerator(BaseGenerator):
         death_indices = self.rng.choice(n_patients, size=n_deaths, replace=False)
         death_dttms = [None] * n_patients
 
+        total_clif_seconds = int((CLIF_DATE_END - CLIF_DATE_START).total_seconds())
         for idx in death_indices:
-            # Death occurs within 0-90 days of reference date (will be linked to hospitalization)
-            days_until_death = int(self.rng.integers(0, 90))
-            death_dttms[idx] = reference_date - timedelta(days=days_until_death)
+            offset_seconds = int(self.rng.integers(0, total_clif_seconds))
+            death_dttms[idx] = CLIF_DATE_START + timedelta(seconds=offset_seconds)
 
         # Create DataFrame with columns ordered per CLIF 2.1.0 schema
         df = pd.DataFrame(
